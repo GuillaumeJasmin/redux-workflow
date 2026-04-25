@@ -1,0 +1,88 @@
+{
+  "name": "@redux-workflow/core",
+  "version": "0.1.0",
+  "description": "Queries, mutations and workflows — unified Redux API",
+  "keywords": [
+    "redux",
+    "redux-saga",
+    "workflow",
+    "typescript"
+  ],
+  "author": "Guillaume Jasmin",
+  "license": "MIT",
+  "homepage": "https://github.com/GuillaumeJasmin/redux-workflow#readme",
+  "bugs": {
+    "url": "https://github.com/GuillaumeJasmin/redux-workflow/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GuillaumeJasmin/redux-workflow.git",
+    "directory": "packages/core"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing.d.mts",
+        "default": "./dist/testing.mjs"
+      },
+      "require": {
+        "types": "./dist/testing.d.cts",
+        "default": "./dist/testing.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsdown --watch",
+    "lint:publint": "publint",
+    "lint:attw": "attw --pack . --ignore-rules no-resolution",
+    "prepublishOnly": "pnpm build"
+  },
+  "peerDependencies": {
+    "@reduxjs/toolkit": ">=2",
+    "redux-saga": ">=1",
+    "vitest": ">=2"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@reduxjs/toolkit": "^2.0.0",
+    "redux-saga": "^1.0.0",
+    "tsdown": "^0.21.10",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "typed-redux-saga": "^1.5.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@redux-workflow/core": ["./packages/core/src/index.ts"],
+      "@redux-workflow/react": ["./packages/react/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src", "packages/*/tests", "*.ts", "*.config.ts", "start.mts"],
+  "exclude": ["**/dist", "**/node_modules"]
+}

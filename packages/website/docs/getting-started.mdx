@@ -1,0 +1,124 @@
+---
+slug: /
+title: Getting started
+---
+
+{/* slug: / makes this the docs index, served at /docs */}
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Redux Workflow
+
+**One Redux API for queries, mutations, and async workflows.** Built on top of
+[Redux Toolkit](https://redux-toolkit.js.org) and
+[Redux Saga](https://redux-saga.js.org/).
+
+- **Queries** — cached, deduped reads.
+- **Mutations** — writes that invalidate the cache.
+- **Workflows** — orchestration: listen to actions, compose queries/mutations, cancel cleanly.
+
+## Install
+
+<Tabs groupId="package-manager">
+  <TabItem value="pnpm" label="pnpm" default>
+
+```bash
+pnpm add @redux-workflow/react @reduxjs/toolkit redux-saga
+```
+
+  </TabItem>
+  <TabItem value="yarn" label="yarn">
+
+```bash
+yarn add @redux-workflow/react @reduxjs/toolkit redux-saga
+```
+
+  </TabItem>
+  <TabItem value="npm" label="npm">
+
+```bash
+npm install @redux-workflow/react @reduxjs/toolkit redux-saga
+```
+
+  </TabItem>
+</Tabs>
+
+`@redux-workflow/core` is pulled in transitively. `react` and `react-redux`
+are peer dependencies — install them only if your project doesn't already
+have them.
+
+For a non-React project, install `@redux-workflow/core` instead of
+`@redux-workflow/react`.
+
+| Package                         | Description                                                |
+| ------------------------------- | ---------------------------------------------------------- |
+| `@redux-workflow/core`          | Framework-agnostic. Queries, mutations, workflows.         |
+| `@redux-workflow/react`         | React bindings (`useQuery`, `useMutation`, `useWorkflow`). |
+| `@redux-workflow/eslint-plugin` | Lint rules (e.g. enforces `yield*`).                       |
+
+## Setup
+
+```ts
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import createSagaMiddleware from 'redux-saga';
+import { createApi } from '@redux-workflow/core';
+
+const postsApi = createApi({
+  name: 'postsApi',
+  queries: (query) => ({
+    /* ... */
+  }),
+  mutations: (mutation) => ({
+    /* ... */
+  }),
+  workflows: (workflow, { queries, mutations }) => ({
+    /* ... */
+  }),
+});
+
+const sagaMiddleware = createSagaMiddleware();
+
+const store = configureStore({
+  reducer: combineReducers({
+    [postsApi.reducerPath]: postsApi.reducer,
+    // ...your other reducers
+  }),
+  middleware: (getDefault) => getDefault().concat(sagaMiddleware),
+});
+
+sagaMiddleware.run(postsApi.rootSaga);
+```
+
+Each API mounts its own state subtree at `state[api.reducerPath]`. State is
+fully isolated between APIs.
+
+## A first taste
+
+```tsx
+const api = createApi({
+  name: 'users',
+  queries: (query) => ({
+    getUser: query({
+      execute: httpQuery<User, { id: string }>({
+        url: ({ id }) => `/users/${id}`,
+      }),
+      cache: 60, // fresh for 60 seconds
+    }),
+  }),
+});
+
+function UserCard({ id }: { id: string }) {
+  const { data, isLoading } = useQuery(api.queries.getUser, { id });
+  if (isLoading) return <Spinner />;
+  return <div>{data.name}</div>;
+}
+```
+
+The `useQuery` hook subscribes the component to the cache entry, dispatches the
+fetch automatically, and re-renders when the data arrives. Subsequent mounts
+within the cache window reuse the data without a re-fetch.
+
+Continue with [Queries](/docs/queries) for the full picture — caching,
+polling, the `{ data }` / `{ error }` contract, and how `async` vs generator
+bodies differ.

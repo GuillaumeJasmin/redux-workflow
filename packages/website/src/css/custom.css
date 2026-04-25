@@ -1,0 +1,29 @@
+/**
+ * Global Docusaurus styles. Infima ships with the classic template; the
+ * variables below override its primary palette to match the redux-workflow
+ * logo (the cyan-blue end of the gradient).
+ */
+
+:root {
+  --ifm-color-primary: #2196d3;
+  --ifm-color-primary-dark: #1e87bd;
+  --ifm-color-primary-darker: #1c7fb2;
+  --ifm-color-primary-darkest: #176993;
+  --ifm-color-primary-light: #36a2d8;
+  --ifm-color-primary-lighter: #41a8da;
+  --ifm-color-primary-lightest: #65b9e0;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode uses a slightly lighter blue for legibility on dark backgrounds. */
+[data-theme='dark'] {
+  --ifm-color-primary: #4eb5e0;
+  --ifm-color-primary-dark: #34a8da;
+  --ifm-color-primary-darker: #29a3d8;
+  --ifm-color-primary-darkest: #2086b6;
+  --ifm-color-primary-light: #6ec1e5;
+  --ifm-color-primary-lighter: #7bc6e7;
+  --ifm-color-primary-lightest: #a3d6ee;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
