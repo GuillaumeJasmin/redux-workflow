@@ -100,7 +100,7 @@ const api = createApi({
   name: 'users',
   queries: (query) => ({
     getUser: query({
-      execute: httpQuery<User, { id: string }>({
+      execute: httpRequest<User, { id: string }>({
         url: ({ id }) => `/users/${id}`,
       }),
       cache: 60, // fresh for 60 seconds

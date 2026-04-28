@@ -23,7 +23,12 @@ export type {
 
 export { buildCacheKey, isCacheStale } from './utils/cacheKey';
 
-export { httpQuery, type HttpQueryOptions, type HttpMethod, type HttpError } from './httpQuery';
+export {
+  httpRequest,
+  type HttpRequestOptions,
+  type HttpMethod,
+  type HttpError,
+} from './httpRequest';
 
 export {
   setupListeners,

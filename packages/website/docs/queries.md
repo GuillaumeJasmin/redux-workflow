@@ -9,13 +9,13 @@ Queries are cached, deduped reads.
 ## Basic query
 
 ```ts
-import { createApi, httpQuery } from '@redux-workflow/core';
+import { createApi, httpRequest } from '@redux-workflow/core';
 
 const api = createApi({
   name: 'users',
   queries: (query) => ({
     getUser: query({
-      execute: httpQuery<User, { id: string }>({
+      execute: httpRequest<User, { id: string }>({
         url: ({ id }) => `/users/${id}`,
       }),
     }),
@@ -23,9 +23,58 @@ const api = createApi({
 });
 ```
 
-`httpQuery` is the built-in fetch adapter — see [`httpQuery`](#httpquery--fetch-based-execute-adapter)
+`httpRequest` is the built-in fetch adapter — see [`httpRequest`](#httprequest--fetch-based-execute-adapter)
 below. You can also pass a plain `async` function (or a generator) as `execute`
 when you need more control.
+
+### Custom `async` executor
+
+When the data source isn't a plain HTTP endpoint — an SDK, IndexedDB, a service
+worker — pass any `async` function returning `{ data }` / `{ error }`:
+
+```ts
+const api = createApi({
+  name: 'users',
+  queries: (query) => ({
+    getUser: query({
+      async execute({ id }: { id: string }) {
+        const user = await usersSdk.fetchById(id);
+        if (!user) return { error: 'NOT_FOUND' as const };
+        return { data: user };
+      },
+    }),
+  }),
+});
+```
+
+### Generator executor
+
+When you need saga primitives (`race` for timeouts, `select` to read store
+state, cancellation, channels), use a generator:
+
+```ts
+import { createApi, call, race, delay } from '@redux-workflow/core';
+
+const api = createApi({
+  name: 'posts',
+  queries: (query) => ({
+    getPost: query({
+      *execute({ id }: { id: string }) {
+        // race the fetch against a timeout — saga cancels the losing branch
+        const { response, timeout } = yield* race({
+          response: call(fetchPost, { id }),
+          timeout: delay(5000),
+        });
+        if (timeout) return { error: 'TIMEOUT' };
+        return { data: response };
+      },
+    }),
+  }),
+});
+```
+
+See [`async` vs generators](#async-by-default-generators-when-you-need-saga-primitives)
+for the full discussion of when to pick which.
 
 Use in a component:
 
@@ -84,9 +133,13 @@ queries: (query) => ({
   // generator: only when you need saga primitives
   getPost: query({
     *execute({ id }: { id: string }) {
-      const user = yield* select(selectAuthenticatedUser); // ← needs yield*
-      const data = yield* call(fetchPost, { id, userId: user.id });
-      return { data };
+      // race the fetch against a timeout — saga cancels the losing branch
+      const { response, timeout } = yield* race({
+        response: call(fetchPost, { id }),
+        timeout: delay(5000),
+      });
+      if (timeout) return { error: 'TIMEOUT' };
+      return { data: response };
     },
   }),
 }),
@@ -260,24 +313,24 @@ function UserLookup() {
 }
 ```
 
-## `httpQuery` — fetch-based `execute` adapter
+## `httpRequest` — fetch-based `execute` adapter
 
 When your `execute` is just "call an HTTP endpoint, return the body,"
-`httpQuery(options)` builds the function for you. It fits directly as
+`httpRequest(options)` builds the function for you. It fits directly as
 `execute:` on any query or mutation.
 
 ```ts
-import { httpQuery } from '@redux-workflow/core';
+import { httpRequest } from '@redux-workflow/core';
 
 getUser: query({
-  execute: httpQuery<User, { id: string }>({
+  execute: httpRequest<User, { id: string }>({
     baseUrl: 'https://api.example.com',
     url: ({ id }) => `/users/${id}`,
   }),
 }),
 
 createUser: mutation({
-  execute: httpQuery<User, { name: string }>({
+  execute: httpRequest<User, { name: string }>({
     baseUrl: 'https://api.example.com',
     url: '/users',
     method: 'POST',
@@ -307,22 +360,40 @@ createUser: mutation({
 - non-2xx → `{ error: { status, data } }` (or `transformErrorResponse(...)`)
 - fetch rejection → `{ error: 'NETWORK_ERROR' }`
 
-**No factory**: there's no `createHttpQuery({ baseUrl })` — if you want to share
-config across endpoints, make your own closure or spread a common options
-object. Example:
+**No factory**: there's no `createHttpRequest({ baseUrl })`. Wrap `httpRequest`
+yourself when you want to share config (base URL, auth headers) across
+endpoints — a small closure works well and preserves type inference:
 
 ```ts
-const commonOpts = {
-  baseUrl: 'https://api.example.com',
-  prepareHeaders: (h: Headers, { getState }) => {
-    const token = selectToken(getState());
-    if (token) h.set('Authorization', `Bearer ${token}`);
-    return h;
-  },
-};
+import { httpRequest, type HttpRequestOptions } from '@redux-workflow/core';
 
+export function baseHttpRequest<TResult = unknown, TArgs = void>(
+  options: HttpRequestOptions<TResult, TArgs>,
+) {
+  return httpRequest<TResult, TArgs>({
+    baseUrl: 'https://api.example.com',
+    prepareHeaders: (h, { getState }) => {
+      const token = selectToken(getState());
+      if (token) h.set('Authorization', `Bearer ${token}`);
+      return h;
+    },
+    ...options, // per-endpoint options win over factory defaults
+  });
+}
+
+// Endpoints just supply the per-call bits:
 getUser: query({
-  execute: httpQuery({ ...commonOpts, url: ({ id }) => `/users/${id}` }),
+  execute: baseHttpRequest<User, { id: string }>({
+    url: ({ id }) => `/users/${id}`,
+  }),
+}),
+
+renameUser: mutation({
+  execute: baseHttpRequest<User, { id: string; name: string }>({
+    url: ({ id }) => `/users/${id}`,
+    method: 'PATCH',
+    body: ({ name }) => ({ name }),
+  }),
 }),
 ```
 

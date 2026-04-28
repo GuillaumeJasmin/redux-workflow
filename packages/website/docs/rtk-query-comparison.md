@@ -33,7 +33,7 @@ If you're coming from RTK Query, the easiest mental model is:
 | `setupListeners`                                       |    ✅     |       ✅       | redux-workflow's signature accepts a custom platform bridge for React Native.                                                                                   |
 | `pollingInterval`                                      |    ✅     |       ✅       | redux-workflow uses endpoint-level `poll: N` in seconds; RTK Query is per-hook and in milliseconds.                                                             |
 | Cache invalidation                                     |    ✅     |       ✅       |                                                                                                                                                                 |
-| `transformResponse`                                    |    ✅     |       ✅       | In redux-workflow it's available on `httpQuery`, not as a generic endpoint option.                                                                              |
+| `transformResponse`                                    |    ✅     |       ✅       | In redux-workflow it's available on `httpRequest`, not as a generic endpoint option.                                                                            |
 | Subscription lifecycle                                 |    ✅     |       ✅       | RTK Query: `onCacheEntryAdded`. redux-workflow dispatches `firstSubscribe` / `lastUnsubscribe` actions, observable from any saga.                               |
 | `onQueryStarted`                                       |    ✅     |       ✅       | redux-workflow exposes it on mutations as `onStart` / `onError` (return a rollback value from `onStart`, receive it in `onError`). For queries, use a workflow. |
 | Streaming updates inside an endpoint                   |    ✅     |       ✅       | RTK Query: `onCacheEntryAdded`. redux-workflow: a workflow that listens to `firstSubscribe`.                                                                    |
@@ -68,11 +68,11 @@ endpoints: (build) => ({
 
 // redux-workflow
 queries: (query) => ({
-  getUsers: query({ execute: httpQuery({ url: '/users' }) }),
+  getUsers: query({ execute: httpRequest({ url: '/users' }) }),
 }),
 mutations: (mutation) => ({
   renameUser: mutation({
-    execute: httpQuery({ url: ({ id }) => `/users/${id}`, method: 'PATCH' }),
+    execute: httpRequest({ url: ({ id }) => `/users/${id}`, method: 'PATCH' }),
     invalidates: ['getUsers'], // ← every cached `getUsers(...)` entry refetches
   }),
 }),

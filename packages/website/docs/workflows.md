@@ -135,7 +135,7 @@ const api = createApi({
   name: 'chat',
   queries: (query) => ({
     messages: query({
-      execute: httpQuery<Message[], { roomId: string }>({
+      execute: httpRequest<Message[], { roomId: string }>({
         url: ({ roomId }) => `/rooms/${roomId}/messages`,
       }),
       keepUnusedDataFor: Infinity, // keep while streaming

@@ -29,7 +29,7 @@ const FEATURES = [
   },
 ];
 
-const SAMPLE_QUERY = `import { createApi, httpQuery } from '@redux-workflow/core';
+const SAMPLE_QUERY = `import { createApi, httpRequest } from '@redux-workflow/core';
 import { useQuery } from '@redux-workflow/react';
 
 type User = { id: string; name: string };
@@ -38,7 +38,7 @@ const api = createApi({
   name: 'users',
   queries: (query) => ({
     getUser: query({
-      execute: httpQuery<User, { id: string }>({
+      execute: httpRequest<User, { id: string }>({
         baseUrl: 'https://api.example.com',
         url: ({ id }) => \`/users/\${id}\`,
       }),
@@ -54,7 +54,7 @@ function UserCard({ id }: { id: string }) {
   return <button onClick={refetch}>{data.name}</button>;
 }`;
 
-const SAMPLE_MUTATION = `import { createApi, httpQuery } from '@redux-workflow/core';
+const SAMPLE_MUTATION = `import { createApi, httpRequest } from '@redux-workflow/core';
 import { useMutation } from '@redux-workflow/react';
 
 type User = { id: string; name: string };
@@ -64,7 +64,7 @@ const api = createApi({
   // ...queries above (getUser)
   mutations: (mutation) => ({
     renameUser: mutation({
-      execute: httpQuery<User, { id: string; name: string }>({
+      execute: httpRequest<User, { id: string; name: string }>({
         baseUrl: 'https://api.example.com',
         url: ({ id }) => \`/users/\${id}\`,
         method: 'PATCH',

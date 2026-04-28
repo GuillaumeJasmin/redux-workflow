@@ -11,7 +11,7 @@ type MaybeFn<TValue, TArgs> = TValue | ((args: TArgs) => TValue);
 
 type ParamValue = string | number | boolean | null | undefined;
 
-export type HttpQueryOptions<TResult, TArgs> = {
+export type HttpRequestOptions<TResult, TArgs> = {
   /** Full URL, or path appended to `baseUrl`. Accepts a function of args. */
   url: MaybeFn<string, TArgs>;
   /** Prefix prepended to `url` when `url` doesn't start with http(s)://. */
@@ -98,7 +98,7 @@ async function parseBody(response: Response): Promise<unknown> {
  *
  * ```ts
  * getUser: query({
- *   execute: httpQuery<User, { id: string }>({
+ *   execute: httpRequest<User, { id: string }>({
  *     url: ({ id }) => `/users/${id}`,
  *     baseUrl: 'https://api.example.com',
  *   }),
@@ -109,8 +109,8 @@ async function parseBody(response: Response): Promise<unknown> {
  * `{ error: { status, data } }`. Transport errors (network, parse) return
  * `{ error: 'NETWORK_ERROR' }`.
  */
-export function httpQuery<TResult = unknown, TArgs = void>(
-  options: HttpQueryOptions<TResult, TArgs>,
+export function httpRequest<TResult = unknown, TArgs = void>(
+  options: HttpRequestOptions<TResult, TArgs>,
 ): (args: TArgs, ctx: ExecuteCallContext) => Promise<QueryResultShape<TResult>> {
   return async function execute(args, ctx) {
     try {

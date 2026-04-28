@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createApi, buildCacheKey, httpQuery } from './index';
+import { createApi, buildCacheKey, httpRequest } from './index';
 import { setupStore, getCache, getMutation } from './testing';
 
 type MockFetch = ReturnType<typeof vi.fn>;
@@ -18,7 +18,7 @@ function makeResponse(
   });
 }
 
-describe('httpQuery', () => {
+describe('httpRequest', () => {
   let fetchMock: MockFetch;
 
   beforeEach(() => {
@@ -37,7 +37,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          execute: httpQuery<{ id: string; name: string }, { id: string }>({
+          execute: httpRequest<{ id: string; name: string }, { id: string }>({
             baseUrl: 'https://api.example.com',
             url: ({ id }) => `/users/${id}`,
           }),
@@ -69,7 +69,7 @@ describe('httpQuery', () => {
       name: 'test',
       mutations: (mutation) => ({
         createUser: mutation({
-          execute: httpQuery<{ ok: boolean }, { name: string }>({
+          execute: httpRequest<{ ok: boolean }, { name: string }>({
             baseUrl: 'https://api.example.com',
             url: '/users',
             method: 'POST',
@@ -102,7 +102,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         search: query({
-          execute: httpQuery<unknown[], { q: string; page: number }>({
+          execute: httpRequest<unknown[], { q: string; page: number }>({
             baseUrl: 'https://api.example.com',
             url: '/search',
             params: ({ q, page }) => ({
@@ -136,7 +136,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          execute: httpQuery<unknown, { id: string }>({
+          execute: httpRequest<unknown, { id: string }>({
             baseUrl: 'https://api.example.com',
             url: ({ id }) => `/users/${id}`,
           }),
@@ -164,7 +164,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          execute: httpQuery<unknown, { id: string }>({
+          execute: httpRequest<unknown, { id: string }>({
             baseUrl: 'https://api.example.com',
             url: ({ id }) => `/users/${id}`,
           }),
@@ -190,7 +190,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          execute: httpQuery<{ id: string; name: string }, { id: string }>({
+          execute: httpRequest<{ id: string; name: string }, { id: string }>({
             baseUrl: 'https://api.example.com',
             url: ({ id }) => `/users/${id}`,
             transformResponse: (raw: any) => raw.data,
@@ -216,7 +216,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          execute: httpQuery<unknown, { id: string }>({
+          execute: httpRequest<unknown, { id: string }>({
             baseUrl: 'https://api.example.com',
             url: ({ id }) => `/users/${id}`,
             prepareHeaders: (headers, ctx) => {
@@ -245,7 +245,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         ping: query({
-          execute: httpQuery<{ ok: boolean }>({
+          execute: httpRequest<{ ok: boolean }>({
             baseUrl: 'https://api.example.com',
             url: 'https://other-host.test/ping',
           }),
@@ -267,7 +267,7 @@ describe('httpQuery', () => {
       name: 'test',
       queries: (query) => ({
         getThing: query({
-          execute: httpQuery<{ custom: number }>({
+          execute: httpRequest<{ custom: number }>({
             baseUrl: 'https://api.example.com',
             url: '/thing',
             fetchFn: customFetch,
