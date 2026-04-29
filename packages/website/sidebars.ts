@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'React hooks',
       collapsed: false,
+      link: { type: 'doc', id: 'hooks/index' },
       items: ['hooks/useQuery', 'hooks/useLazyQuery', 'hooks/useMutation', 'hooks/useWorkflow'],
     },
     {

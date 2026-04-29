@@ -188,7 +188,6 @@ getUser: query({
     const data = await fetchUser(id);
     return { data };
   },
-  cache: 60, // fresh for 60s
 }),
 ```
 
