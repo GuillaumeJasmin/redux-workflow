@@ -14,7 +14,12 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['queries', 'mutations', 'workflows'],
     },
-    'hooks',
+    {
+      type: 'category',
+      label: 'React hooks',
+      collapsed: false,
+      items: ['hooks/useQuery', 'hooks/useLazyQuery', 'hooks/useMutation', 'hooks/useWorkflow'],
+    },
     {
       type: 'category',
       label: 'Guides',

@@ -9,22 +9,26 @@ Mutations are writes. They invalidate the cache and can run optimistic updates.
 ## Basic mutation
 
 ```ts
+import { createApi, httpRequest } from '@redux-workflow/core';
+
 const api = createApi({
   name: 'posts',
   mutations: (mutation) => ({
     createPost: mutation({
-      async execute(args: { title: string; body: string }) {
-        const response = await fetch('/posts', {
-          method: 'POST',
-          body: JSON.stringify(args),
-        });
-        const data = await response.json();
-        return { data };
-      },
+      execute: httpRequest<Post, { title: string; body: string }>({
+        url: '/posts',
+        method: 'POST',
+        body: (args) => args,
+      }),
     }),
   }),
 });
 ```
+
+`httpRequest` is the built-in fetch adapter — see
+[`httpRequest`](/docs/queries#httprequest--fetch-based-execute-adapter) on the
+queries page for the full options table. You can also pass a plain `async`
+function (or a generator) as `execute` when you need more control.
 
 Use in a component:
 
@@ -45,10 +49,10 @@ function NewPost() {
 ```ts
 mutations: (mutation) => ({
   deletePost: mutation({
-    async execute({ id }: { id: string }) {
-      await fetch(`/posts/${id}`, { method: 'DELETE' });
-      return { data: null };
-    },
+    execute: httpRequest<null, { id: string }>({
+      url: ({ id }) => `/posts/${id}`,
+      method: 'DELETE',
+    }),
     invalidates: ['listPosts'], // all cached args combinations of listPosts refetch
   }),
 }),
@@ -66,10 +70,10 @@ const alertAcknowledged = createAction<{ alertId: string }>('alerts/ack');
 
 acknowledgeAlert: mutation({
   listen: alertAcknowledged,
-  async execute({ alertId }) {
-    await fetch(`/alerts/${alertId}/ack`, { method: 'POST' });
-    return { data: null };
-  },
+  execute: httpRequest<null, { alertId: string }>({
+    url: ({ alertId }) => `/alerts/${alertId}/ack`,
+    method: 'POST',
+  }),
   invalidates: ['getAlerts'],
 }),
 ```
@@ -79,10 +83,10 @@ acknowledgeAlert: mutation({
 ```ts
 mutations: (mutation) => ({
   likePost: mutation({
-    async execute({ postId }: { postId: string }) {
-      const data = await fetch(`/posts/${postId}/like`, { method: 'POST' });
-      return { data };
-    },
+    execute: httpRequest<Post, { postId: string }>({
+      url: ({ postId }) => `/posts/${postId}/like`,
+      method: 'POST',
+    }),
 
     *onStart({ postId }, { getCache, patchCache }) {
       const previous = yield* getCache('getPost', { id: postId });
