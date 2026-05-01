@@ -109,6 +109,29 @@ Inside a workflow's `execute`, the second argument is the typed context:
 - `select(selector)` — `yield* select(...)` forwarded from redux-saga.
 - `put(action)` — `yield* put(...)` forwarded from redux-saga.
 
+The workflows builder callback ctx exposes typed access to the api's
+slice:
+
+- `selectors` — bound slice selectors, ready to use with `select`.
+- `actions` — typed action creators from the slice's `reducers`. These
+  are private; they only exist on this ctx, not on the public api.
+
+```ts
+workflows: (workflow, { selectors, actions }) => ({
+  toggle: workflow({
+    *execute(_, { select, put }) {
+      const isOpen = yield* select(selectors.selectIsOpen);
+      if (!isOpen) yield* put(actions.open());
+    },
+  }),
+});
+```
+
+`actions.x()` is the canonical way to update slice state from a
+workflow when the action has no other meaning. For state changes
+_caused by_ something else (mutation lifecycle, external action), use
+the slice's `extraReducers` instead — see [API slice](/docs/api-slice).
+
 ## Referencing queries / mutations at the def level
 
 The workflow builder callback receives instance refs — use them for `listen`

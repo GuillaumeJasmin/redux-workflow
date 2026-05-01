@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { createAction, combineReducers } from '@reduxjs/toolkit';
+import { createAction, combineReducers, createSlice, type Reducer } from '@reduxjs/toolkit';
 import { all, call } from 'typed-redux-saga';
 import { createInstanceAction } from './instanceActions';
 import type {
+  ActionsFromSliceReturn,
   ApiInstance,
   CreateApiOptions,
   MutationBuilder,
@@ -16,6 +17,9 @@ import type {
   QueryInstance,
   QueryLifecyclePayload,
   SagaGen,
+  SelectorsFromSliceReturn,
+  SliceBuilder,
+  SliceConfig,
   WorkflowBuilder,
   WorkflowDefinition,
   WorkflowInstance,
@@ -49,10 +53,16 @@ function makeWorkflowBuilder<QDefs, MDefs>(): WorkflowBuilder<QDefs, MDefs> {
 export function createApi<
   QDefs extends Record<string, QueryDefinition<any, any>> = EmptyDefs,
   MDefs extends Record<string, MutationDefinition<any, any, QDefs>> = EmptyDefs,
+  TSliceReturn = SliceConfig<EmptyDefs, EmptyDefs, EmptyDefs>,
   WDefs extends Record<string, WorkflowDefinition<any, any, QDefs, MDefs>> = EmptyDefs,
 >(
-  options: CreateApiOptions<QDefs, MDefs, WDefs>,
-): ApiInstance<QueriesFromDefs<QDefs>, MutationsFromDefs<MDefs>, WorkflowsFromDefs<WDefs>> {
+  options: CreateApiOptions<QDefs, MDefs, TSliceReturn, WDefs>,
+): ApiInstance<
+  QueriesFromDefs<QDefs>,
+  MutationsFromDefs<MDefs>,
+  WorkflowsFromDefs<WDefs>,
+  SelectorsFromSliceReturn<TSliceReturn>
+> {
   const { name } = options;
   const reducerPath = name;
 
@@ -96,11 +106,34 @@ export function createApi<
 
   const mutationInstances = buildMutationInstances(name, reducerPath, mutationDefs, resetMutation);
 
-  // Phase 3: workflows — both earlier phases available
+  // Phase 3: slice — queries + mutations available. Identity at runtime;
+  // the `slice` builder unlocks per-call TS inference of TInitial /
+  // TReducers / TSelectors.
+  const identitySliceBuilder: SliceBuilder = (config) => config;
+  const sliceConfig = options.slice
+    ? (options.slice as (s: SliceBuilder, ctx: unknown) => InternalSliceConfig)(
+        identitySliceBuilder,
+        {
+          queries: queryInstances,
+          mutations: mutationInstances,
+        },
+      )
+    : null;
+  const domainSlice = sliceConfig ? buildDomainSlice(name, sliceConfig) : null;
+  const apiSelectors: Record<string, (rootState: any) => unknown> = sliceConfig
+    ? bindSelectors(reducerPath, sliceConfig.selectors ?? {})
+    : {};
+  // The slice's action creators — exposed only on the workflow ctx,
+  // never on `api.actions`.
+  const sliceActions: Record<string, (...args: unknown[]) => unknown> = domainSlice?.actions ?? {};
+
+  // Phase 4: workflows — queries + mutations + slice selectors + slice actions.
   const workflowDefs = options.workflows
     ? options.workflows(makeWorkflowBuilder<QDefs, MDefs>(), {
         queries: queryInstances as QueriesFromDefs<QDefs>,
         mutations: mutationInstances as MutationsFromDefs<MDefs>,
+        selectors: apiSelectors as SelectorsFromSliceReturn<TSliceReturn>,
+        actions: sliceActions as ActionsFromSliceReturn<TSliceReturn>,
       })
     : ({} as WDefs);
 
@@ -123,6 +156,7 @@ export function createApi<
     queries: cacheSlice.reducer,
     mutations: mutationSlice.reducer,
     workflows: workflowSlice.reducer,
+    ...(domainSlice ? { slice: domainSlice.reducer } : {}),
   });
 
   const watchQueries = createWatchQueryTriggers(reducerPath, queryInstances, invalidateCache);
@@ -168,9 +202,51 @@ export function createApi<
     queries: queryInstances as QueriesFromDefs<QDefs>,
     mutations: mutationInstances as MutationsFromDefs<MDefs>,
     workflows: workflowInstances as WorkflowsFromDefs<WDefs>,
+    selectors: apiSelectors as SelectorsFromSliceReturn<TSliceReturn>,
     invalidateCache,
     resetCache: () => resetCache(),
   };
+}
+
+// Internal-only erased shapes. Public types carry the real inference;
+// these are just runtime-friendly erasures so we can build the slice
+// without fighting generic constraints.
+type InternalSliceConfig = SliceConfig<unknown, Record<string, never>, Record<string, never>>;
+type InternalSelectorRecord = Record<string, (local: unknown, root: unknown) => unknown>;
+
+function buildDomainSlice(
+  apiName: string,
+  config: InternalSliceConfig,
+): {
+  reducer: Reducer;
+  actions: Record<string, (...args: unknown[]) => unknown>;
+} {
+  const slice = createSlice({
+    name: `${apiName}/slice`,
+    initialState: config.initialState,
+    reducers: config.reducers ?? {},
+    extraReducers: config.extraReducers,
+  });
+  return {
+    reducer: slice.reducer,
+    actions: slice.actions,
+  };
+}
+
+function bindSelectors(
+  reducerPath: string,
+  selectors: InternalSelectorRecord,
+): Record<string, (rootState: any) => unknown> {
+  const bound: Record<string, (rootState: any) => unknown> = {};
+  for (const [key, fn] of Object.entries(selectors)) {
+    bound[key] = (rootState: any) => {
+      const sub = (rootState as Record<string, unknown> | undefined)?.[reducerPath] as
+        | { slice?: unknown }
+        | undefined;
+      return fn(sub?.slice, rootState);
+    };
+  }
+  return bound;
 }
 
 function buildQueryInstances(

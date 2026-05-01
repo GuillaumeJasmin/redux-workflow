@@ -12,7 +12,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Core concepts',
       collapsed: false,
-      items: ['queries', 'mutations', 'workflows'],
+      items: ['queries', 'mutations', 'workflows', 'api-slice'],
     },
     {
       type: 'category',
@@ -26,6 +26,7 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       items: ['architecture', 'testing', 'rtk-query-comparison'],
     },
+    'recipes',
     {
       type: 'category',
       label: 'Maintainers',

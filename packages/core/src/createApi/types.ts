@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { Action, ActionCreatorWithPayload, Reducer } from '@reduxjs/toolkit';
+import type {
+  Action,
+  ActionCreatorWithPayload,
+  ActionReducerMapBuilder,
+  PayloadAction,
+  Reducer,
+} from '@reduxjs/toolkit';
 
 export type QueryStatus = 'uninitialized' | 'pending' | 'fulfilled' | 'rejected';
 
@@ -44,6 +50,76 @@ type MutationArgs<MDefs, K extends keyof MDefs> =
 
 type MutationResult<MDefs, K extends keyof MDefs> =
   MDefs[K] extends MutationDefinition<infer R, any> ? R : never;
+
+// ---------------- API-level slice ----------------------------------------
+
+/**
+ * Reducer signature for the api's `slice.reducers`. Single canonical
+ * shape — `(state, action: PayloadAction<P>) => void` — keeps TInitial
+ * contextually typed on `state`. For no-payload reducers, declare
+ * `_action: PayloadAction<void>` explicitly:
+ *
+ * ```ts
+ * reducers: {
+ *   reset: (state, _action: PayloadAction<void>) => { state.x = 0; }
+ * }
+ * ```
+ *
+ * Same convention as RTK's `createSlice`. The action creator for
+ * void-payload reducers is callable with no args: `actions.reset()`.
+ */
+export type SliceReducerOf<TInitial> = (state: TInitial, action: PayloadAction<any>) => void;
+export type SliceReducerRecord<TInitial> = Record<string, SliceReducerOf<TInitial>>;
+
+/**
+ * Selector signature for the api's `slice.selectors`. Receives both the
+ * slice's local state and the root state — composes with selectors from
+ * other slices.
+ */
+export type SliceSelectorOf<TInitial> = (local: TInitial, root: any) => unknown;
+export type SliceSelectorRecord<TInitial> = Record<string, SliceSelectorOf<TInitial>>;
+
+/**
+ * Slice configuration. State changes happen two ways:
+ *
+ * - `reducers`: private writers, dispatchable only from this api's
+ *   workflows via `actions.x()` on the workflow ctx. Use for state
+ *   mutations the workflow alone authors.
+ * - `extraReducers`: react to actions defined elsewhere (this api's
+ *   mutation/query lifecycle, internal `createAction` events, external
+ *   domain actions). Use when something *outside* this slice causes the
+ *   state change.
+ */
+export type SliceConfig<TInitial, TReducers, TSelectors> = {
+  initialState: TInitial;
+  reducers?: TReducers & SliceReducerRecord<TInitial>;
+  extraReducers?: (builder: ActionReducerMapBuilder<TInitial>) => void;
+  selectors?: TSelectors & SliceSelectorRecord<TInitial>;
+};
+
+type SlicePayloadOf<R> = R extends (state: any, action: PayloadAction<infer P>) => void ? P : never;
+
+type RTKActionMethod<R> = [SlicePayloadOf<R>] extends [void]
+  ? () => PayloadAction<undefined>
+  : (payload: SlicePayloadOf<R>) => PayloadAction<SlicePayloadOf<R>>;
+
+/**
+ * Map a reducer record to typed action creators. Exposed on the workflow
+ * ctx as `actions` — never on the public api.
+ */
+export type RTKActionsFromReducers<TReducers> = {
+  [K in keyof TReducers]: RTKActionMethod<TReducers[K]>;
+};
+
+/**
+ * Map a selector record to bound `(rootState) => R` selectors. Exposed on
+ * `api.selectors`.
+ */
+export type BoundSelectors<TSelectors> = {
+  [K in keyof TSelectors]: TSelectors[K] extends (local: any, root: any) => infer R
+    ? (rootState: any) => R
+    : never;
+};
 
 // ---------------- Execute context (passed to mutations + workflows) --------
 
@@ -291,6 +367,8 @@ export type ApiInstance<
   Q extends Record<string, QueryInstance> = Record<string, QueryInstance>,
   M extends Record<string, MutationInstance> = Record<string, MutationInstance>,
   W extends Record<string, WorkflowInstance> = Record<string, WorkflowInstance>,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  S extends Record<string, (rootState: any) => any> = {},
 > = {
   name: string;
   reducerPath: string;
@@ -299,23 +377,95 @@ export type ApiInstance<
   queries: Q;
   mutations: M;
   workflows: W;
+  /**
+   * Bound selectors from the api's `slice`. Each selector takes
+   * `rootState` and returns its declared result. Empty object when no
+   * slice is configured.
+   */
+  selectors: S;
   invalidateCache: ActionCreatorWithPayload<{ cacheKey: string }>;
   resetCache: () => Action;
 };
 
+/**
+ * Builder passed to the slice callback. Identity at runtime; its job is
+ * to capture the slice's TS generics at its own call site so they're
+ * resolved independently of `createApi`'s outer inference.
+ */
+export type SliceBuilder = <
+  TInitial,
+  TReducers extends SliceReducerRecord<TInitial>,
+  TSelectors extends SliceSelectorRecord<TInitial>,
+>(
+  config: SliceConfig<TInitial, TReducers, TSelectors>,
+) => SliceConfig<TInitial, TReducers, TSelectors>;
+
+/**
+ * Ctx passed to the slice callback (second arg). Has typed access to the
+ * api's queries and mutations — declared earlier in the options literal.
+ *
+ * Slice runs *before* workflows in the dependency chain so that workflows
+ * can read slice state via their own ctx. To listen to a workflow's
+ * lifecycle from a slice, reference `api.workflows.x.on.succeeded.match`
+ * via api self-reference, or use a domain-event bridge.
+ */
+export type SliceBuilderCtx<QDefs, MDefs> = {
+  queries: QueriesFromDefs<
+    QDefs extends Record<string, QueryDefinition<any, any>> ? QDefs : Record<string, never>
+  >;
+  mutations: MutationsFromDefs<
+    MDefs extends Record<string, MutationDefinition<any, any>> ? MDefs : Record<string, never>
+  >;
+};
+
+/** Extract the bound selectors shape from the slice callback's return. */
+export type SelectorsFromSliceReturn<TSliceReturn> =
+  TSliceReturn extends SliceConfig<any, any, infer TSelectors>
+    ? BoundSelectors<TSelectors>
+    : Record<string, never>;
+
+/** Extract the typed action creators from the slice callback's return. */
+export type ActionsFromSliceReturn<TSliceReturn> =
+  TSliceReturn extends SliceConfig<any, infer TReducers, any>
+    ? RTKActionsFromReducers<TReducers>
+    : Record<string, never>;
+
 export type CreateApiOptions<
   QDefs extends Record<string, QueryDefinition<any, any>>,
   MDefs extends Record<string, MutationDefinition<any, any, QDefs>>,
-  WDefs extends Record<string, WorkflowDefinition<any, any, QDefs, MDefs>>,
+  TSliceReturn = SliceConfig<Record<string, never>, Record<string, never>, Record<string, never>>,
+  WDefs extends Record<string, WorkflowDefinition<any, any, QDefs, MDefs>> = Record<
+    string,
+    WorkflowDefinition<any, any, QDefs, MDefs>
+  >,
 > = {
   name: string;
   queries?: (query: QueryBuilder) => QDefs;
   mutations?: (mutation: MutationBuilder<QDefs>, ctx: { queries: QueriesFromDefs<QDefs> }) => MDefs;
+  /**
+   * Slice builder callback. Receives a typed `slice` builder (call it
+   * with the config to lock TInitial / TReducers / TSelectors locally)
+   * and a ctx with typed `queries` / `mutations` for `extraReducers`
+   * matchers.
+   *
+   * Runs *before* workflows in the dependency chain — workflows can
+   * read slice state via their own ctx and dispatch the slice's private
+   * actions.
+   */
+  slice?: (slice: SliceBuilder, ctx: SliceBuilderCtx<QDefs, MDefs>) => TSliceReturn;
+  /**
+   * Workflows builder callback. Receives the `workflow` builder and a
+   * ctx with typed `queries`, `mutations`, `selectors` (bound slice
+   * selectors), and `actions` (typed action creators from the slice's
+   * `reducers` — private to this api's workflows).
+   */
   workflows?: (
     workflow: WorkflowBuilder<QDefs, MDefs>,
     ctx: {
       queries: QueriesFromDefs<QDefs>;
       mutations: MutationsFromDefs<MDefs>;
+      selectors: SelectorsFromSliceReturn<TSliceReturn>;
+      actions: ActionsFromSliceReturn<TSliceReturn>;
     },
   ) => WDefs;
 };

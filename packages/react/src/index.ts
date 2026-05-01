@@ -24,6 +24,7 @@ export {
   type ExecuteContext,
   type QueryStatus,
   type WorkflowStatus,
+  type SliceConfig,
   type CacheEntry,
   type CacheState,
   type MutationEntry,

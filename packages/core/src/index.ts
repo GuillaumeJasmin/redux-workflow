@@ -10,6 +10,7 @@ export type {
   ExecuteContext,
   QueryStatus,
   WorkflowStatus,
+  SliceConfig,
 } from './createApi/types';
 
 export type {
