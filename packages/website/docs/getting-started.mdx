@@ -100,7 +100,7 @@ lands on the homepage — but only if they haven't already subscribed. State,
 network calls, and orchestration all live in one api.
 
 ```tsx
-import { createAction } from '@reduxjs/toolkit';
+import { createAction, type PayloadAction } from '@reduxjs/toolkit';
 import { useSelector } from 'react-redux';
 import { createApi, httpRequest, delay, put } from '@redux-workflow/react';
 import { useMutation } from '@redux-workflow/react';
@@ -108,24 +108,18 @@ import { useMutation } from '@redux-workflow/react';
 const onGuestVisitHomepage = createAction('guest/visitedHomepage');
 const onGuestLeavesHomepage = createAction('guest/leftHomepage');
 
-// Internal events — declared at module scope, not exported. The workflow
-// dispatches them; the slice listens via `extraReducers`. This is the
-// canonical pattern for slice writes (see "API slice" in the docs).
-const newsletterOpened = createAction('newsletter/opened');
-const newsletterClosed = createAction('newsletter/closed');
-
 const newsletterApi = createApi({
   name: 'newsletter',
-  queries: (query) => ({
-    fetchSubscriptionStatus: query({
+  queries: (buildQuery) => ({
+    fetchSubscriptionStatus: buildQuery({
       execute: httpRequest<{ subscribed: boolean }, void>({
         method: 'GET',
         url: '/newsletter/status',
       }),
     }),
   }),
-  mutations: (mutation) => ({
-    subscribe: mutation({
+  mutations: (buildMutation) => ({
+    subscribe: buildMutation({
       execute: httpRequest<void, { email: string }>({
         method: 'POST',
         url: '/newsletter/subscribe',
@@ -134,23 +128,26 @@ const newsletterApi = createApi({
       invalidates: ['fetchSubscriptionStatus'],
     }),
   }),
-  slice: (slice) =>
-    slice({
+  slice: (buildSlice) =>
+    buildSlice({
       initialState: { isOpen: false },
-      extraReducers: (builder) => {
-        builder.addCase(newsletterOpened, (state) => {
+      // Private writers — the action creators land on the workflow ctx
+      // as `actions`, never on `api.actions`. This keeps workflows as
+      // the only ergonomic dispatch site.
+      reducers: {
+        open: (state, _action: PayloadAction<void>) => {
           state.isOpen = true;
-        });
-        builder.addCase(newsletterClosed, (state) => {
+        },
+        close: (state, _action: PayloadAction<void>) => {
           state.isOpen = false;
-        });
+        },
       },
       selectors: {
         selectIsModalOpen: (local) => local.isOpen,
       },
     }),
-  workflows: (workflow, { mutations, selectors }) => ({
-    showModalAfterDelay: workflow({
+  workflows: (buildWorkflow, { mutations, selectors, actions }) => ({
+    showModalAfterDelay: buildWorkflow({
       listen: onGuestVisitHomepage,
       dismiss: onGuestLeavesHomepage,
       *execute(_, { query, select }) {
@@ -165,13 +162,16 @@ const newsletterApi = createApi({
         const alreadyOpen = yield* select(selectors.selectIsModalOpen);
         if (alreadyOpen) return;
 
-        yield* put(newsletterOpened());
+        // `actions.open` is the typed action creator from `slice.reducers`.
+        // Available only on the workflow ctx — the public api never
+        // exposes it.
+        yield* put(actions.open());
       },
     }),
-    closeModalAfterSubscription: workflow({
+    closeModalAfterSubscription: buildWorkflow({
       listen: mutations.subscribe.on.succeeded,
       *execute() {
-        yield* put(newsletterClosed());
+        yield* put(actions.close());
       },
     }),
   }),
@@ -205,15 +205,17 @@ What this example shows working together:
 - **Mutations invalidate.** `subscribe` lists `fetchSubscriptionStatus`
   in `invalidates`, so a successful submission marks the cached status
   stale and the next reader sees fresh data.
-- **Slice owns UI state.** `isOpen` lives in the api's slice, declared
-  alongside everything else. Writes go through `extraReducers` listening
-  to internal events the workflow dispatches.
+- **Slice owns UI state with private writers.** `isOpen` lives in the
+  api's slice. `slice.reducers.open` / `close` are auto-generated
+  action creators — they land on the workflow ctx as `actions` and are
+  never exposed on `api.actions`. The slice can only be written from
+  inside a workflow.
 - **Workflows orchestrate and read.** `showModalAfterDelay` checks the
   cache (via `query`), waits, checks the slice (via
-  `select(selectors.x)`), then emits `newsletterOpened`.
+  `select(selectors.x)`), then dispatches `actions.open()`.
   `closeModalAfterSubscription` listens to the mutation's lifecycle and
-  emits `newsletterClosed`. See [API slice](/docs/api-slice) for the
-  `extraReducers`-listens-to-events pattern in detail.
+  dispatches `actions.close()`. See [API slice](/docs/api-slice) for
+  when to use `reducers` vs `extraReducers`.
 
 Continue with [Queries](/docs/queries) for the full picture — caching,
 polling, the `{ data }` / `{ error }` contract, and how `async` vs generator

@@ -15,8 +15,8 @@ const newsletterApi = createApi({
   mutations: (mutation) => ({
     subscribe: mutation({ execute: ... }),
   }),
-  slice: (slice, { mutations }) =>
-    slice({
+  slice: (build, { mutations }) =>
+        build({
       initialState: { subscribed: false },
       extraReducers: (builder) => {
         builder.addMatcher(mutations.subscribe.on.succeeded.match, (state) => {
@@ -42,7 +42,7 @@ bag; one slice per api keeps the boundary clean.
 ## Shape
 
 ```ts
-slice: (slice, ctx) => slice({
+slice: (build, ctx) => build({
   initialState,            // any value
   reducers?,               // private writers — workflow ctx only
   extraReducers?,          // (builder) => void — react to actions
@@ -51,10 +51,15 @@ slice: (slice, ctx) => slice({
 ```
 
 The slice is a builder callback (mirrors `queries` / `mutations` /
-`workflows`). The first arg `slice` is a typed builder you call with
-your config — it's identity at runtime, but its job is to lock the
-slice's TypeScript generics at the call site so `extraReducers` and
-`selectors` are properly typed.
+`workflows`). The first arg is a typed builder you call with your
+config — it's identity at runtime, but its job is to lock the slice's
+TypeScript generics at the call site so `extraReducers` and `selectors`
+are properly typed.
+
+The examples here name the builder `build`. The name is up to you —
+`s`, `defineSlice`, or any other identifier work too. Using `build`
+matches RTK Query's `endpoints: (build) => ({...})` convention and
+avoids the doubled `slice: (slice) => slice({...})`.
 
 The second arg `ctx` exposes the api's `queries` and `mutations`
 instance maps for use in `extraReducers` matchers. **Workflows are not
@@ -96,8 +101,8 @@ event), use `extraReducers`.
 ## `reducers` — private state writers
 
 ```ts
-slice: (slice) =>
-  slice({
+slice: (build) =>
+        build({
     initialState: { isOpen: false, email: '' },
     reducers: {
       open: (state, _action: PayloadAction<void>) => {
@@ -139,8 +144,8 @@ Use when the trigger is something other than a workflow setter:
   (`userLoggedOut`, etc.).
 
 ```ts
-slice: (slice, { mutations }) =>
-  slice({
+slice: (build, { mutations }) =>
+        build({
     initialState: { subscribed: false, draftEmail: '', isOpen: false },
     extraReducers: (builder) => {
       builder

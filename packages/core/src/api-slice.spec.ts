@@ -9,8 +9,8 @@ describe('redux-workflow api slice', () => {
   it('exposes bound selectors that read from state[reducerPath].slice', () => {
     const api = createApi({
       name: 'newsletter',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { isOpen: false, count: 0 },
           selectors: {
             selectIsOpen: (local) => local.isOpen,
@@ -30,8 +30,8 @@ describe('redux-workflow api slice', () => {
 
     const api = createApi({
       name: 'newsletter',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { isOpen: true },
           selectors: {
             selectComposite: (local, root: any) => local.isOpen && root != null,
@@ -49,7 +49,7 @@ describe('redux-workflow api slice', () => {
   it('does not expose action creators on the public api', () => {
     const api = createApi({
       name: 'x',
-      slice: (slice) => slice({ initialState: { count: 0 } }),
+      slice: (build) => build({ initialState: { count: 0 } }),
     });
 
     expect((api as any).actions).toBeUndefined();
@@ -67,8 +67,8 @@ describe('redux-workflow api slice', () => {
           },
         }),
       }),
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { isOpen: false },
           extraReducers: (builder) => {
             builder.addCase(opened, (state) => {
@@ -94,8 +94,8 @@ describe('redux-workflow api slice', () => {
 
     const api = createApi({
       name: 'newsletter',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { isOpen: true },
           extraReducers: (builder) => {
             builder.addCase(userLoggedOut, (state) => {
@@ -125,8 +125,8 @@ describe('redux-workflow api slice', () => {
           },
         }),
       }),
-      slice: (slice, { mutations }) =>
-        slice({
+      slice: (build, { mutations }) =>
+        build({
           initialState: { subscribed: false },
           extraReducers: (builder) => {
             builder.addMatcher(mutations.subscribe.on.succeeded.match, (state) => {
@@ -153,8 +153,8 @@ describe('redux-workflow api slice', () => {
 
     const api = createApi({
       name: 'counter',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { count: 0 },
           extraReducers: (builder) => {
             builder.addCase(bumped, (state) => {
@@ -196,8 +196,8 @@ describe('redux-workflow api slice', () => {
   it('slice.reducers exposes typed action creators on the workflow ctx', async () => {
     const api = createApi({
       name: 'newsletter',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { isOpen: false, email: '' },
           reducers: {
             // No-payload reducers declare `_action: PayloadAction<void>`
@@ -249,8 +249,8 @@ describe('redux-workflow api slice', () => {
   it('slice.reducers actions are not exposed on the public api', () => {
     const api = createApi({
       name: 'x',
-      slice: (slice) =>
-        slice({
+      slice: (build) =>
+        build({
           initialState: { count: 0 },
           reducers: {
             inc: (state, _action: PayloadAction) => {
