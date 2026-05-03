@@ -3,7 +3,7 @@
 import { call, put, take, fork, join, cancel, cancelled, race, all } from 'typed-redux-saga';
 import type { Action, ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
 import { createSagaContext } from './sagaContext';
-import { getActionTypes, toArray, toErrorMessage } from './actionHelpers';
+import { toArray, toErrorMessage } from './actionHelpers';
 import type {
   MutationInstance,
   QueryInstance,
@@ -22,18 +22,20 @@ function createWorkflowSaga(
   const ctx = createSagaContext(reducerPath, queryInstances, mutationInstances, patchCache);
 
   return function* runWorkflow(args: unknown): SagaGen<void> {
-    yield* put(instance.on.pending({ args, workflowKey } as any));
+    yield* put(instance._pendingAction({ args, workflowKey } as any));
 
     try {
       const data: unknown = yield* call(def.execute as any, args as any, ctx);
 
-      yield* put(instance.on.succeeded({ args, workflowKey, data } as any));
+      yield* put(instance._fulfilledAction({ args, workflowKey, data } as any));
     } catch (error) {
-      yield* put(instance.on.failed({ args, workflowKey, error: toErrorMessage(error) } as any));
+      yield* put(
+        instance._rejectedAction({ args, workflowKey, error: toErrorMessage(error) } as any),
+      );
     } finally {
       if (yield* cancelled()) {
         const message = 'cancelled';
-        yield* put(instance.on.failed({ args, workflowKey, error: message } as any));
+        yield* put(instance._rejectedAction({ args, workflowKey, error: message } as any));
       }
     }
   };
@@ -84,14 +86,18 @@ function* watchInstance({
     patchCache,
   );
 
-  const listenTypes = getActionTypes(toArray(instance._def.listen));
-  const dismissTypes = [...getActionTypes(toArray(instance._def.dismiss)), instance.cancel.type];
+  const listenPredicates = toArray(instance._def.listen);
+  const dismissPredicates = [
+    ...toArray(instance._def.dismiss),
+    (action: Action) => instance.cancel.match(action),
+  ];
 
   const triggerType = instance.trigger.type;
 
   while (true) {
     const action = yield* take(
-      (candidate: Action) => candidate.type === triggerType || listenTypes.includes(candidate.type),
+      (candidate: Action) =>
+        candidate.type === triggerType || listenPredicates.some((p) => p(candidate)),
     );
 
     const args = (action as PayloadAction<unknown>).payload;
@@ -99,7 +105,7 @@ function* watchInstance({
     yield* fork(runWithDismiss, {
       runWorkflow,
       args,
-      dismissTypes,
+      dismissPredicates,
     });
   }
 }
@@ -107,11 +113,15 @@ function* watchInstance({
 type RunWithDismissParams = {
   runWorkflow: (args: unknown) => SagaGen<void>;
   args: unknown;
-  dismissTypes: string[];
+  dismissPredicates: ((action: Action) => boolean)[];
 };
 
-function* runWithDismiss({ runWorkflow, args, dismissTypes }: RunWithDismissParams): SagaGen<void> {
-  if (dismissTypes.length === 0) {
+function* runWithDismiss({
+  runWorkflow,
+  args,
+  dismissPredicates,
+}: RunWithDismissParams): SagaGen<void> {
+  if (dismissPredicates.length === 0) {
     yield* call(runWorkflow, args);
     return;
   }
@@ -122,7 +132,7 @@ function* runWithDismiss({ runWorkflow, args, dismissTypes }: RunWithDismissPara
     completed: call(function* () {
       yield* join(workflowTask);
     }),
-    dismissed: take((action: Action) => dismissTypes.includes(action.type)),
+    dismissed: take((action: Action) => dismissPredicates.some((p) => p(action))),
   });
 
   if (dismissed) {

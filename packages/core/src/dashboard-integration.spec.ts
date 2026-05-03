@@ -32,7 +32,7 @@ describe('redux-workflow — dashboard scenario', () => {
       }),
       workflows: (workflow) => ({
         onEnter: workflow({
-          listen: pageEntered,
+          listen: pageEntered.match,
           *execute(args: { patientId: string }, { query }) {
             const result = yield* query('getAlerts', {
               patientId: args.patientId,

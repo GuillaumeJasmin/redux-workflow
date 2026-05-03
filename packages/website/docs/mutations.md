@@ -69,7 +69,7 @@ Like queries, mutations can auto-fire on a domain action:
 const alertAcknowledged = createAction<{ alertId: string }>('alerts/ack');
 
 acknowledgeAlert: mutation({
-  listen: alertAcknowledged,
+  listen: alertAcknowledged.match,
   execute: httpRequest<null, { alertId: string }>({
     url: ({ alertId }) => `/alerts/${alertId}/ack`,
     method: 'POST',

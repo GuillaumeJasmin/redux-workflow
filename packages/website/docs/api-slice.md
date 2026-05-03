@@ -19,7 +19,7 @@ const newsletterApi = createApi({
         build({
       initialState: { subscribed: false },
       extraReducers: (builder) => {
-        builder.addMatcher(mutations.subscribe.on.succeeded.match, (state) => {
+        builder.addMatcher(mutations.subscribe.matchFulfilled, (state) => {
           state.subscribed = true;
         });
       },
@@ -67,7 +67,7 @@ in the slice ctx** — slice runs _before_ workflows in the dependency
 chain so that workflows can read slice state via their own ctx. To
 listen to a workflow's lifecycle from a slice, either:
 
-- Reference `api.workflows.x.on.succeeded.match` via api self-reference
+- Reference `api.workflows.x.matchFulfilled` via api self-reference
   (lint may warn; works at runtime).
 - Have the workflow dispatch a domain event the slice listens to (the
   bridge pattern).
@@ -134,10 +134,10 @@ State is contextually typed from `initialState` (immer enabled). Action payloads
 Use when the trigger is something other than a workflow setter:
 
 - This api's queries / mutations lifecycle:
-  `queries.x.on.succeeded.match`, `mutations.x.on.succeeded.match` (via
-  the slice ctx).
+  `queries.x.matchFulfilled`, `mutations.x.matchFulfilled` (via the
+  slice ctx).
 - Workflow lifecycle: dispatch a domain event from the workflow that
-  the slice listens to, or reference `api.workflows.x.on.succeeded.match`
+  the slice listens to, or reference `api.workflows.x.matchFulfilled`
   via api self-reference.
 - Internal events: `createAction` declared at module scope (not exported).
 - External actions: imported action creators from elsewhere
@@ -150,7 +150,7 @@ slice: (build, { mutations }) =>
     extraReducers: (builder) => {
       builder
         // 1. This api's mutation lifecycle
-        .addMatcher(mutations.subscribe.on.succeeded.match, (state) => {
+        .addMatcher(mutations.subscribe.matchFulfilled, (state) => {
           state.subscribed = true;
           state.isOpen = false;
         })

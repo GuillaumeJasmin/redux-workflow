@@ -39,7 +39,7 @@ describe('redux-workflow workflows', () => {
       name: 'test',
       workflows: (workflow) => ({
         load: workflow({
-          listen: pageEntered,
+          listen: pageEntered.match,
           *execute(args: { patientId: string }) {
             executeSpy(args);
             return args.patientId;
@@ -70,7 +70,7 @@ describe('redux-workflow workflows', () => {
       name: 'test',
       workflows: (workflow) => ({
         watch: workflow({
-          dismiss: pageLeft,
+          dismiss: pageLeft.match,
           *execute() {
             try {
               yield* delay(60_000);
@@ -268,8 +268,8 @@ describe('redux-workflow workflows — streaming pattern', () => {
       }),
       workflows: (workflow, { queries }) => ({
         streamMessages: workflow({
-          listen: queries.messages.firstSubscribe,
-          dismiss: queries.messages.lastUnsubscribe,
+          listen: queries.messages.firstSubscribe.match,
+          dismiss: queries.messages.lastUnsubscribe.match,
           *execute(payload: { args: { roomId: string }; cacheKey: string }, { patchCache }) {
             opened.push(payload.args.roomId);
             try {

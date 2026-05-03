@@ -17,7 +17,7 @@ import { postsApi } from './posts.api';
 createSlice({
   extraReducers: (builder) => {
     builder.addMatcher(
-      postsApi.mutations.publishPost.on.pending.match,
+      postsApi.mutations.publishPost.matchPending,
       (state) => { /* clear draft, mark optimistic */ }
     );
   },
@@ -87,7 +87,7 @@ action type string:
 // authentication.slice.ts — no postsApi import
 builder.addMatcher(
   (action): action is PayloadAction<{ error: string }> =>
-    action.type === 'postsApi/queries/fetchPost/failed' &&
+    action.type === 'postsApi/queries/fetchPost/rejected' &&
     (action as any).payload?.error === 'AUTHENTICATED_USER_NOT_AUTHORIZED',
   (state) => {
     state.user = null;
@@ -109,7 +109,7 @@ clean domain action:
 // posts.api.ts (inside the same createApi that owns fetchPost)
 workflows: (workflow, { queries }) => ({
   relayAuthFailure: workflow({
-    listen: queries.fetchPost.on.failed,
+    listen: queries.fetchPost.matchRejected,
     *execute({ error }, { put }) {
       if (error === 'AUTHENTICATED_USER_NOT_AUTHORIZED') {
         yield* put(authenticatedUserUnauthorized());
@@ -124,12 +124,12 @@ neutral domain action. The foreign slice listens to the domain action.
 
 ## Summary
 
-| Situation                                      | Pattern                                                              |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| Slice listens to its own feature's api         | Direct matcher on `api.queries.X.on.*.match` — intra-feature is safe |
-| Foreign slice listens to an api event          | Plain domain action (Recipe 1)                                       |
-| Foreign slice can't get the owner to cooperate | Lazy action-type matcher (Recipe 2)                                  |
-| Reaction logic is multi-step                   | Workflow relay in the owning feature (Recipe 3)                      |
+| Situation                                      | Pattern                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| Slice listens to its own feature's api         | Direct matcher on `api.queries.X.match*` — intra-feature is safe |
+| Foreign slice listens to an api event          | Plain domain action (Recipe 1)                                   |
+| Foreign slice can't get the owner to cooperate | Lazy action-type matcher (Recipe 2)                              |
+| Reaction logic is multi-step                   | Workflow relay in the owning feature (Recipe 3)                  |
 
 ## Why slices shouldn't import another feature's api
 

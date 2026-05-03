@@ -23,9 +23,9 @@ export type SagaGen<TResult = unknown> = Generator<any, TResult>;
  */
 type SagaOrPromise<TResult> = SagaGen<TResult> | Promise<TResult>;
 
-export type AnyActionCreator =
-  | ActionCreatorWithPayload<any>
-  | { type: string; match: (action: any) => boolean };
+export type Predicate<T> = (arg: T) => boolean;
+
+export type ActionPredicate = Predicate<Action>;
 
 /**
  * Return shape for queries and mutations, following RTK Query's pattern.
@@ -208,7 +208,7 @@ export type QueryDefinition<TResult = unknown, TArgs = void> = {
    * Matches RTK Query's `keepUnusedDataFor` option name and semantics.
    */
   keepUnusedDataFor?: number;
-  listen?: AnyActionCreator | AnyActionCreator[];
+  listen?: ActionPredicate | ActionPredicate[];
   /**
    * Refetch every currently-subscribed cache entry of this query when the
    * app regains focus. Wire the platform focus signal with `setupListeners`.
@@ -225,7 +225,7 @@ export type QueryDefinition<TResult = unknown, TArgs = void> = {
 export type MutationDefinition<TResult = unknown, TArgs = void, QDefs = any> = {
   execute: (args: TArgs, ctx: ExecuteCallContext) => SagaOrPromise<QueryResultShape<TResult>>;
   invalidates?: Extract<keyof QDefs, string>[];
-  listen?: AnyActionCreator | AnyActionCreator[];
+  listen?: ActionPredicate | ActionPredicate[];
   /**
    * Runs before `execute`. Its return value is handed to `onError` for rollback.
    * Typical use: optimistic update via `ctx.patchCache(...)`.
@@ -240,8 +240,8 @@ export type MutationDefinition<TResult = unknown, TArgs = void, QDefs = any> = {
 
 export type WorkflowDefinition<TResult = unknown, TArgs = void, QDefs = any, MDefs = any> = {
   execute: (args: TArgs, ctx: ExecuteContext<QDefs, MDefs>) => SagaGen<TResult>;
-  listen?: AnyActionCreator | AnyActionCreator[];
-  dismiss?: AnyActionCreator | AnyActionCreator[];
+  listen?: ActionPredicate | ActionPredicate[];
+  dismiss?: ActionPredicate | ActionPredicate[];
 };
 
 // ---------------- Builder function types (callback params) ------------------
@@ -260,13 +260,19 @@ export type WorkflowBuilder<QDefs, MDefs> = <TResult, TArgs>(
 
 // ---------------- Instances (what createApi returns) ----------------
 
+/**
+ * Typed predicate that narrows to a `PayloadAction<P>` — the same shape
+ * RTK's `creator.match` produces. Used for `match*` lifecycle fields.
+ */
+type Matcher<P> = (action: Action) => action is PayloadAction<P>;
+
 type QueryPendingPayload<TArgs> = { args: TArgs; cacheKey: string };
-type QuerySucceededPayload<TResult, TArgs> = {
+type QueryFulfilledPayload<TResult, TArgs> = {
   args: TArgs;
   cacheKey: string;
   data: TResult;
 };
-type QueryFailedPayload<TArgs> = {
+type QueryRejectedPayload<TArgs> = {
   args: TArgs;
   cacheKey: string;
   error: string;
@@ -296,6 +302,14 @@ export type QueryInstance<TResult = any, TArgs = any> = {
     refetchOnFocus?: boolean;
     refetchOnReconnect?: boolean;
   }>;
+  /**
+   * Internal — lifecycle action creators used by the saga runners to
+   * dispatch `pending` / `fulfilled` / `rejected` transitions. Public
+   * code should use the `match*` predicates instead.
+   */
+  _pendingAction: ActionCreatorWithPayload<QueryPendingPayload<TArgs>>;
+  _fulfilledAction: ActionCreatorWithPayload<QueryFulfilledPayload<TResult, TArgs>>;
+  _rejectedAction: ActionCreatorWithPayload<QueryRejectedPayload<TArgs>>;
   trigger: ActionCreatorWithPayload<TArgs>;
   /**
    * Dispatched when the subscriber count transitions from 0 to 1 for a given
@@ -308,23 +322,25 @@ export type QueryInstance<TResult = any, TArgs = any> = {
    * last mount unsubscribes. Fires before the gc timer starts.
    */
   lastUnsubscribe: ActionCreatorWithPayload<QueryLifecyclePayload<TArgs>>;
-  on: {
-    pending: ActionCreatorWithPayload<QueryPendingPayload<TArgs>>;
-    succeeded: ActionCreatorWithPayload<QuerySucceededPayload<TResult, TArgs>>;
-    failed: ActionCreatorWithPayload<QueryFailedPayload<TArgs>>;
-  };
+  /**
+   * RTK Query-style matcher predicates. Use directly with
+   * `builder.addMatcher(...)` or as a `listen` target.
+   */
+  matchPending: Matcher<QueryPendingPayload<TArgs>>;
+  matchFulfilled: Matcher<QueryFulfilledPayload<TResult, TArgs>>;
+  matchRejected: Matcher<QueryRejectedPayload<TArgs>>;
 };
 
 type MutationPendingPayload<TArgs> = {
   args: TArgs;
   mutationKey: string;
 };
-type MutationSucceededPayload<TResult, TArgs> = {
+type MutationFulfilledPayload<TResult, TArgs> = {
   args: TArgs;
   mutationKey: string;
   data: TResult;
 };
-type MutationFailedPayload<TArgs> = {
+type MutationRejectedPayload<TArgs> = {
   args: TArgs;
   mutationKey: string;
   error: string;
@@ -334,12 +350,12 @@ type WorkflowPendingPayload<TArgs> = {
   args: TArgs;
   workflowKey: string;
 };
-type WorkflowSucceededPayload<TResult, TArgs> = {
+type WorkflowFulfilledPayload<TResult, TArgs> = {
   args: TArgs;
   workflowKey: string;
   data: TResult;
 };
-type WorkflowFailedPayload<TArgs> = {
+type WorkflowRejectedPayload<TArgs> = {
   args: TArgs;
   workflowKey: string;
   error: string;
@@ -352,12 +368,13 @@ export type MutationInstance<TResult = any, TArgs = any> = {
   _def: MutationDefinition<TResult, TArgs>;
   _reducerPath: string;
   _reset: ActionCreatorWithPayload<{ mutationKey: string }>;
+  _pendingAction: ActionCreatorWithPayload<MutationPendingPayload<TArgs>>;
+  _fulfilledAction: ActionCreatorWithPayload<MutationFulfilledPayload<TResult, TArgs>>;
+  _rejectedAction: ActionCreatorWithPayload<MutationRejectedPayload<TArgs>>;
   trigger: ActionCreatorWithPayload<TArgs>;
-  on: {
-    pending: ActionCreatorWithPayload<MutationPendingPayload<TArgs>>;
-    succeeded: ActionCreatorWithPayload<MutationSucceededPayload<TResult, TArgs>>;
-    failed: ActionCreatorWithPayload<MutationFailedPayload<TArgs>>;
-  };
+  matchPending: Matcher<MutationPendingPayload<TArgs>>;
+  matchFulfilled: Matcher<MutationFulfilledPayload<TResult, TArgs>>;
+  matchRejected: Matcher<MutationRejectedPayload<TArgs>>;
 };
 
 export type WorkflowInstance<TResult = any, TArgs = any> = {
@@ -367,13 +384,14 @@ export type WorkflowInstance<TResult = any, TArgs = any> = {
   _def: WorkflowDefinition<TResult, TArgs>;
   _reducerPath: string;
   _reset: ActionCreatorWithPayload<{ workflowKey: string }>;
+  _pendingAction: ActionCreatorWithPayload<WorkflowPendingPayload<TArgs>>;
+  _fulfilledAction: ActionCreatorWithPayload<WorkflowFulfilledPayload<TResult, TArgs>>;
+  _rejectedAction: ActionCreatorWithPayload<WorkflowRejectedPayload<TArgs>>;
   trigger: ActionCreatorWithPayload<TArgs>;
   cancel: ActionCreatorWithPayload<void>;
-  on: {
-    pending: ActionCreatorWithPayload<WorkflowPendingPayload<TArgs>>;
-    succeeded: ActionCreatorWithPayload<WorkflowSucceededPayload<TResult, TArgs>>;
-    failed: ActionCreatorWithPayload<WorkflowFailedPayload<TArgs>>;
-  };
+  matchPending: Matcher<WorkflowPendingPayload<TArgs>>;
+  matchFulfilled: Matcher<WorkflowFulfilledPayload<TResult, TArgs>>;
+  matchRejected: Matcher<WorkflowRejectedPayload<TArgs>>;
 };
 
 // ---------------- Mapping Defs -> Instances ----------------
@@ -441,7 +459,7 @@ export type SliceBuilder = <
  *
  * Slice runs *before* workflows in the dependency chain so that workflows
  * can read slice state via their own ctx. To listen to a workflow's
- * lifecycle from a slice, reference `api.workflows.x.on.succeeded.match`
+ * lifecycle from a slice, reference `api.workflows.x.matchFulfilled`
  * via api self-reference, or use a domain-event bridge.
  */
 export type SliceBuilderCtx<QDefs, MDefs> = {

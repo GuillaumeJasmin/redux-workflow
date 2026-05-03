@@ -11,8 +11,8 @@ inspection — they give you clean vitest diffs on failure.
 dispatch(api.mutations.renamePost.trigger({ id: 'abc', title: 'new' }));
 await flush();
 
-// Match any dispatched action of that type (pass the action creator).
-then.hasDispatchedAction(api.mutations.renamePost.on.succeeded);
+// Match any dispatched action of that type (pass the matcher).
+then.hasDispatchedAction(api.mutations.renamePost.matchFulfilled);
 
 // Match a specific instance: type + payload deep-equality.
 then.hasDispatchedAction(api.mutations.renamePost.trigger({ id: 'abc', title: 'new' }));

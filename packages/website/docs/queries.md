@@ -155,7 +155,7 @@ body when you'd otherwise reach for `yield* select(...)`:
 
 ```ts
 createPost: mutation({
-  listen: createPostAction,
+  listen: createPostAction.match,
   async execute({ title, body }, { getState }) {
     const user = selectAuthenticatedUser(getState());
     if (!user) return { error: 'USER_NOT_FOUND' };
@@ -176,7 +176,7 @@ saga middleware was configured with
 (fine for pre-`await` reads in simple bodies).
 
 To dispatch from an async body, either return `{ error }` (the runner
-dispatches `on.failed`) or switch to a generator and use `yield* put`.
+dispatches the `rejected` action) or switch to a generator and use `yield* put`.
 
 ## Cache (staleTime)
 
@@ -211,7 +211,7 @@ import { createAction } from '@reduxjs/toolkit';
 const pageEntered = createAction<{ postId: string }>('postPage/pageEntered');
 
 getPost: query({
-  listen: pageEntered, // action payload is used as args
+  listen: pageEntered.match, // action payload is used as args
   async execute({ postId }: { postId: string }) {
     const data = await fetchPost(postId);
     return { data };

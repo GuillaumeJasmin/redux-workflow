@@ -39,7 +39,7 @@ const pageEntered = createAction<{ userId: string }>('dashboard/entered');
 
 workflows: (workflow) => ({
   loadDashboard: workflow({
-    listen: pageEntered,
+    listen: pageEntered.match,
     *execute({ userId }) { /* ... */ },
   }),
 }),
@@ -53,8 +53,8 @@ Multiple listen actions: pass an array.
 const pageLeft = createAction('dashboard/left');
 
 watchInactivity: workflow({
-  listen: pageEntered,
-  dismiss: pageLeft,   // or [pageLeft, sessionExpired]
+  listen: pageEntered.match,
+  dismiss: pageLeft.match,   // or [pageLeft.match, sessionExpired.match]
   *execute({ userId }) {
     try {
       yield* delay(60_000);
@@ -216,7 +216,7 @@ already work today — the instance overload doesn't change that:
 ```ts
 workflows: (workflow) => ({
   onTokenRefresh: workflow({
-    listen: authApi.mutations.refreshToken.on.succeeded,
+    listen: authApi.mutations.refreshToken.matchFulfilled,
     *execute({ data }) { /* data is typed: { token: string } */ },
   }),
 }),
@@ -233,7 +233,7 @@ and `dismiss`:
 ```ts
 workflows: (workflow, { queries, mutations }) => ({
   revalidateOnCreate: workflow({
-    listen: mutations.createPost.on.succeeded,
+    listen: mutations.createPost.matchFulfilled,
     *execute({ args, data, mutationKey }) {
       // react to successful mutation
     },
@@ -260,8 +260,8 @@ const api = createApi({
 
   workflows: (workflow, { queries }) => ({
     streamMessages: workflow({
-      listen: queries.messages.firstSubscribe,
-      dismiss: queries.messages.lastUnsubscribe,
+      listen: queries.messages.firstSubscribe.match,
+      dismiss: queries.messages.lastUnsubscribe.match,
       *execute({ args, cacheKey }: { args: { roomId: string }; cacheKey: string }, { patchCache }) {
         const socket = new WebSocket(`/rooms/${args.roomId}/stream`);
         const channel = eventChannelFromSocket(socket);

@@ -38,7 +38,7 @@ describe('redux-workflow mutations', () => {
       name: 'test',
       mutations: (mutation) => ({
         acknowledge: mutation({
-          listen: alertAcknowledged,
+          listen: alertAcknowledged.match,
           *execute(args: { alertId: string }) {
             executeSpy(args);
             return { data: null };

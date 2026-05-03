@@ -148,8 +148,8 @@ const newsletterApi = createApi({
     }),
   workflows: (buildWorkflow, { mutations, selectors, actions }) => ({
     showModalAfterDelay: buildWorkflow({
-      listen: onGuestVisitHomepage,
-      dismiss: onGuestLeavesHomepage,
+      listen: onGuestVisitHomepage.match,
+      dismiss: onGuestLeavesHomepage.match,
       *execute(_, { query, select }) {
         // Read through the cache. Returns { data } | { error }.
         const status = yield* query('fetchSubscriptionStatus', undefined);
@@ -169,7 +169,7 @@ const newsletterApi = createApi({
       },
     }),
     closeModalAfterSubscription: buildWorkflow({
-      listen: mutations.subscribe.on.succeeded,
+      listen: mutations.subscribe.matchFulfilled,
       *execute() {
         yield* put(actions.close());
       },

@@ -120,14 +120,16 @@ function* runOneQuery(
 ): SagaGen<void> {
   const cacheKey = buildCacheKey(instance._key, args);
 
-  yield* put(instance.on.pending({ args, cacheKey } as any));
+  yield* put(instance._pendingAction({ args, cacheKey } as any));
 
   const result = yield* resolveMock(mockFn, args);
 
   if ('data' in result) {
-    yield* put(instance.on.succeeded({ args, cacheKey, data: result.data } as any));
+    yield* put(instance._fulfilledAction({ args, cacheKey, data: result.data } as any));
   } else {
-    yield* put(instance.on.failed({ args, cacheKey, error: toErrorMessage(result.error) } as any));
+    yield* put(
+      instance._rejectedAction({ args, cacheKey, error: toErrorMessage(result.error) } as any),
+    );
   }
 }
 
@@ -148,15 +150,15 @@ function* runOneMutation(
 ): SagaGen<void> {
   const mutationKey = instance._key;
 
-  yield* put(instance.on.pending({ args, mutationKey } as any));
+  yield* put(instance._pendingAction({ args, mutationKey } as any));
 
   const result = yield* resolveMock(mockFn, args);
 
   if ('data' in result) {
-    yield* put(instance.on.succeeded({ args, mutationKey, data: result.data } as any));
+    yield* put(instance._fulfilledAction({ args, mutationKey, data: result.data } as any));
   } else {
     yield* put(
-      instance.on.failed({ args, mutationKey, error: toErrorMessage(result.error) } as any),
+      instance._rejectedAction({ args, mutationKey, error: toErrorMessage(result.error) } as any),
     );
   }
 }

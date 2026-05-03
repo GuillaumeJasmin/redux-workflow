@@ -115,7 +115,7 @@ describe('redux-workflow api slice', () => {
     expect(api.selectors.selectIsOpen(store.getState())).toBe(false);
   });
 
-  it('slice ctx exposes mutations.x.on.succeeded.match for direct extraReducers access', async () => {
+  it('slice ctx exposes mutations.x.matchFulfilled for direct extraReducers access', async () => {
     const api = createApi({
       name: 'newsletter',
       mutations: (mutation) => ({
@@ -129,7 +129,7 @@ describe('redux-workflow api slice', () => {
         build({
           initialState: { subscribed: false },
           extraReducers: (builder) => {
-            builder.addMatcher(mutations.subscribe.on.succeeded.match, (state) => {
+            builder.addMatcher(mutations.subscribe.matchFulfilled, (state) => {
               state.subscribed = true;
             });
           },

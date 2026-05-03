@@ -15,7 +15,7 @@ function buildApi(fetchGameImpl: (id: string) => Promise<Game>) {
     name: 'gameApi',
     queries: (query) => ({
       fetchGame: query({
-        listen: enteredDashboard,
+        listen: enteredDashboard.match,
         *execute({ id }: { id: string }) {
           try {
             const data = yield* call(() => fetchGameImpl(id));
@@ -43,7 +43,7 @@ function buildApi(fetchGameImpl: (id: string) => Promise<Game>) {
     reducers: {},
     extraReducers: (builder) => {
       builder.addMatcher(
-        api.queries.fetchGame.on.succeeded.match,
+        api.queries.fetchGame.matchFulfilled,
         (state, action: PayloadAction<any>) => {
           state.game = action.payload.data;
         },
@@ -118,7 +118,7 @@ describe('setupApiTest — mutation + partial match', () => {
     await flush();
 
     then.hasDispatchedAction(api.mutations.renameGame.trigger);
-    then.hasDispatchedAction(api.mutations.renameGame.on.succeeded);
+    then.hasDispatchedAction(api.mutations.renameGame.matchFulfilled);
   });
 
   it('hasDispatchedAction matches by action object (type + payload)', async () => {

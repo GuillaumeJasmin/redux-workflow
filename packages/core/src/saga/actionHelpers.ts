@@ -1,15 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { getContext } from 'typed-redux-saga';
-import type { AnyActionCreator, ExecuteCallContext, SagaGen } from '../createApi/types';
+import type { ExecuteCallContext, SagaGen } from '../createApi/types';
 
 export function toArray<T>(value: T | T[] | undefined): T[] {
   if (value === undefined) return [];
   return Array.isArray(value) ? value : [value];
-}
-
-export function getActionTypes(creators: AnyActionCreator[]): string[] {
-  return creators.map((creator) => creator.type);
 }
 
 export function toErrorMessage(error: unknown): string {

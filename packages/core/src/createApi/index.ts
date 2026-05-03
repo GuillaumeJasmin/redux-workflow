@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */
 
 import { createAction, combineReducers, createSlice, type Reducer } from '@reduxjs/toolkit';
 import { all, call } from 'typed-redux-saga';
@@ -262,6 +262,10 @@ function buildQueryInstances(
   for (const [queryName, def] of Object.entries(defs)) {
     const key = `${apiName}/queries/${queryName}`;
 
+    const pendingAction = createInstanceAction<any>(`${key}/pending`, 'query', 'pending');
+    const fulfilledAction = createInstanceAction<any>(`${key}/fulfilled`, 'query', 'fulfilled');
+    const rejectedAction = createInstanceAction<any>(`${key}/rejected`, 'query', 'rejected');
+
     result[queryName] = {
       _key: key,
       _name: queryName,
@@ -271,14 +275,15 @@ function buildQueryInstances(
       _invalidate: invalidate,
       _subscribe: subscribe,
       _unsubscribe: unsubscribe,
+      _pendingAction: pendingAction,
+      _fulfilledAction: fulfilledAction,
+      _rejectedAction: rejectedAction,
       trigger: createAction<any>(`${key}/trigger`),
       firstSubscribe: createAction<QueryLifecyclePayload<any>>(`${key}/firstSubscribe`),
       lastUnsubscribe: createAction<QueryLifecyclePayload<any>>(`${key}/lastUnsubscribe`),
-      on: {
-        pending: createInstanceAction(`${key}/pending`, 'query', 'pending'),
-        succeeded: createInstanceAction(`${key}/succeeded`, 'query', 'succeeded'),
-        failed: createInstanceAction(`${key}/failed`, 'query', 'failed'),
-      },
+      matchPending: pendingAction.match,
+      matchFulfilled: fulfilledAction.match,
+      matchRejected: rejectedAction.match,
     };
   }
 
@@ -296,6 +301,10 @@ function buildMutationInstances(
   for (const [mutationName, def] of Object.entries(defs)) {
     const key = `${apiName}/mutations/${mutationName}`;
 
+    const pendingAction = createInstanceAction<any>(`${key}/pending`, 'mutation', 'pending');
+    const fulfilledAction = createInstanceAction<any>(`${key}/fulfilled`, 'mutation', 'fulfilled');
+    const rejectedAction = createInstanceAction<any>(`${key}/rejected`, 'mutation', 'rejected');
+
     result[mutationName] = {
       _key: key,
       _name: mutationName,
@@ -303,12 +312,13 @@ function buildMutationInstances(
       _def: def,
       _reducerPath: reducerPath,
       _reset: reset,
+      _pendingAction: pendingAction,
+      _fulfilledAction: fulfilledAction,
+      _rejectedAction: rejectedAction,
       trigger: createAction<any>(`${key}/trigger`),
-      on: {
-        pending: createInstanceAction(`${key}/pending`, 'mutation', 'pending'),
-        succeeded: createInstanceAction(`${key}/succeeded`, 'mutation', 'succeeded'),
-        failed: createInstanceAction(`${key}/failed`, 'mutation', 'failed'),
-      },
+      matchPending: pendingAction.match,
+      matchFulfilled: fulfilledAction.match,
+      matchRejected: rejectedAction.match,
     };
   }
 
@@ -326,6 +336,10 @@ function buildWorkflowInstances(
   for (const [workflowName, def] of Object.entries(defs)) {
     const key = `${apiName}/workflows/${workflowName}`;
 
+    const pendingAction = createInstanceAction<any>(`${key}/pending`, 'workflow', 'pending');
+    const fulfilledAction = createInstanceAction<any>(`${key}/fulfilled`, 'workflow', 'fulfilled');
+    const rejectedAction = createInstanceAction<any>(`${key}/rejected`, 'workflow', 'rejected');
+
     result[workflowName] = {
       _key: key,
       _name: workflowName,
@@ -333,13 +347,14 @@ function buildWorkflowInstances(
       _def: def,
       _reducerPath: reducerPath,
       _reset: reset,
+      _pendingAction: pendingAction,
+      _fulfilledAction: fulfilledAction,
+      _rejectedAction: rejectedAction,
       trigger: createAction<any>(`${key}/trigger`),
       cancel: createAction(`${key}/cancel`),
-      on: {
-        pending: createInstanceAction(`${key}/pending`, 'workflow', 'pending'),
-        succeeded: createInstanceAction(`${key}/succeeded`, 'workflow', 'succeeded'),
-        failed: createInstanceAction(`${key}/failed`, 'workflow', 'failed'),
-      },
+      matchPending: pendingAction.match,
+      matchFulfilled: fulfilledAction.match,
+      matchRejected: rejectedAction.match,
     };
   }
 

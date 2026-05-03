@@ -22,16 +22,16 @@ import { runInterceptorSaga, type MockSpec } from './mockApi';
 
 /**
  * Accepted shapes for `hasDispatchedAction` / `hasNoDispatchedAction`:
- *  - An action creator (function with a static `.type`) — matches any
- *    dispatched action of that type, regardless of payload.
- *  - A dispatched action object (`{ type, payload }`) — matches on type
- *    AND payload deep-equality.
+ *  - A predicate `(action) => boolean` — e.g. `instance.matchFulfilled`.
+ *  - An action creator with `.match` (RTK) — `.match` is used as the predicate.
+ *  - A dispatched action object (`{ type, payload }`) — type + payload deep-equality.
  */
-type ActionCreatorLike = ((...args: any[]) => Action) & { type: string };
-type ActionMatcher = Action | ActionCreatorLike;
+type Predicate = (action: Action) => boolean;
+type ActionCreatorLike = ((...args: any[]) => any) & { match: Predicate };
+type ActionMatcher = Action | Predicate | ActionCreatorLike;
 
-function isActionCreator(value: ActionMatcher): value is ActionCreatorLike {
-  return typeof value === 'function';
+function toPredicate(value: Predicate | ActionCreatorLike): Predicate {
+  return 'match' in value && typeof value.match === 'function' ? value.match : value;
 }
 
 type SliceLike = {
@@ -63,10 +63,10 @@ export interface ApiTestThen<TSlice extends SliceLike | undefined> {
   workflow<TResult, TArgs>(instance: WorkflowInstance<TResult, TArgs>): WorkflowAssertion<TResult>;
   slice: TSlice extends SliceLike ? () => SliceAssertion<SliceState<TSlice>> : never;
   /**
-   * Assert that an action was dispatched.
-   *  - `hasDispatchedAction(myAction)` — any action of that type.
-   *  - `hasDispatchedAction(myAction({ foo: 'bar' }))` — exact match on
-   *    type + payload.
+   * Assert that an action was dispatched. Accepts:
+   *  - A predicate — e.g. `api.mutations.x.matchFulfilled`.
+   *  - An action creator — its `.match` is used as the predicate.
+   *  - An action object — type + payload deep-equality.
    */
   hasDispatchedAction(matcher: ActionMatcher): void;
   /** Inverse of `hasDispatchedAction`. */
@@ -188,17 +188,17 @@ export function setupApiTest<TSlice extends SliceLike | undefined = undefined>(
         }
       : undefined) as ApiTestThen<TSlice>['slice'],
     hasDispatchedAction(matcher: ActionMatcher) {
-      if (isActionCreator(matcher)) {
-        expect(dispatchedActions).toContainEqual(expect.objectContaining({ type: matcher.type }));
+      if (typeof matcher === 'function') {
+        const predicate = toPredicate(matcher);
+        expect(dispatchedActions.some(predicate)).toBe(true);
       } else {
         expect(dispatchedActions).toContainEqual(matcher);
       }
     },
     hasNoDispatchedAction(matcher: ActionMatcher) {
-      if (isActionCreator(matcher)) {
-        expect(dispatchedActions).not.toContainEqual(
-          expect.objectContaining({ type: matcher.type }),
-        );
+      if (typeof matcher === 'function') {
+        const predicate = toPredicate(matcher);
+        expect(dispatchedActions.some(predicate)).toBe(false);
       } else {
         expect(dispatchedActions).not.toContainEqual(matcher);
       }

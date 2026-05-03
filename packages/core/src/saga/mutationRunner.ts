@@ -2,13 +2,7 @@
 
 import { call, put, select, takeEvery, all } from 'typed-redux-saga';
 import type { Action, ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
-import {
-  buildExecuteCallContext,
-  getActionTypes,
-  isErrorResult,
-  toArray,
-  toErrorMessage,
-} from './actionHelpers';
+import { buildExecuteCallContext, isErrorResult, toArray, toErrorMessage } from './actionHelpers';
 import { createSagaContext } from './sagaContext';
 import type { MutationInstance, QueryInstance, SagaGen } from '../createApi/types';
 import type { CacheState } from '../store/cacheSlice';
@@ -30,7 +24,7 @@ function createMutationSaga(
   return function* onTrigger(action: PayloadAction<any>): SagaGen<void> {
     const args = action.payload;
 
-    yield* put(instance.on.pending({ args, mutationKey } as any));
+    yield* put(instance._pendingAction({ args, mutationKey } as any));
 
     let rollback: unknown = ROLLBACK_SENTINEL;
 
@@ -48,7 +42,7 @@ function createMutationSaga(
       }
 
       yield* put(
-        instance.on.succeeded({
+        instance._fulfilledAction({
           args,
           mutationKey,
           data: result?.data,
@@ -94,7 +88,7 @@ function createMutationSaga(
       }
     }
 
-    yield* put(instance.on.failed({ args, mutationKey, error: payloadError } as any));
+    yield* put(instance._rejectedAction({ args, mutationKey, error: payloadError } as any));
   }
 }
 
@@ -115,10 +109,14 @@ export function createWatchMutationTriggers(
         patchCache,
         mutationInstances,
       );
-      const listenTypes = getActionTypes(toArray(instance._def.listen));
-      const acceptedTypes = [instance.trigger.type, ...listenTypes];
+      const listenPredicates = toArray(instance._def.listen);
+      const triggerType = instance.trigger.type;
       return call(function* () {
-        yield* takeEvery((action: Action) => acceptedTypes.includes(action.type), saga);
+        yield* takeEvery(
+          (action: Action) =>
+            action.type === triggerType || listenPredicates.some((p) => p(action)),
+          saga,
+        );
       });
     });
 

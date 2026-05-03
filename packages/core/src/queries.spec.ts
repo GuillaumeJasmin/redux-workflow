@@ -158,7 +158,7 @@ describe('redux-workflow queries', () => {
       name: 'test',
       queries: (query) => ({
         getUser: query({
-          listen: pageEntered,
+          listen: pageEntered.match,
           *execute(args: { id: string }) {
             fetchSpy(args);
             return { data: { id: args.id, name: 'Alice' } };
@@ -272,9 +272,7 @@ describe('redux-workflow query concurrency', () => {
 
     expect(resolvers).toHaveLength(1);
 
-    const pendingCount = dispatchedActions.filter(
-      (a) => a.type === api.queries.getUser.on.pending.type,
-    ).length;
+    const pendingCount = dispatchedActions.filter(api.queries.getUser.matchPending).length;
     expect(pendingCount).toBe(1);
 
     resolvers[0]!({ id: '1', name: 'Alice' });

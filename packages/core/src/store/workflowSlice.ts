@@ -33,9 +33,9 @@ export function createWorkflowSlice(
   resetWorkflow: ActionCreatorWithPayload<{ workflowKey: string }>,
 ) {
   const instances = Object.values(workflowInstances);
-  const pendingCreators = instances.map((i) => i.on.pending);
-  const succeededCreators = instances.map((i) => i.on.succeeded);
-  const failedCreators = instances.map((i) => i.on.failed);
+  const pendingCreators = instances.map((i) => i._pendingAction);
+  const succeededCreators = instances.map((i) => i._fulfilledAction);
+  const failedCreators = instances.map((i) => i._rejectedAction);
 
   return createSlice({
     name: `${apiName}/workflowState`,

@@ -24,21 +24,20 @@ export function createSagaContext(
     instance: QueryInstance,
     cacheKey: string,
   ): SagaGen<{ data: unknown } | { error: unknown }> {
-    const { succeeded, failed } = yield* race({
-      succeeded: take(
-        (action: any) =>
-          instance.on.succeeded.match(action) && action.payload.cacheKey === cacheKey,
+    const { fulfilled, rejected } = yield* race({
+      fulfilled: take(
+        (action: any) => instance.matchFulfilled(action) && action.payload.cacheKey === cacheKey,
       ),
-      failed: take(
-        (action: any) => instance.on.failed.match(action) && action.payload.cacheKey === cacheKey,
+      rejected: take(
+        (action: any) => instance.matchRejected(action) && action.payload.cacheKey === cacheKey,
       ),
     });
 
-    if (failed) {
-      return { error: (failed as any).payload.error };
+    if (rejected) {
+      return { error: (rejected as any).payload.error };
     }
 
-    return { data: (succeeded as any).payload.data };
+    return { data: (fulfilled as any).payload.data };
   }
 
   function lookupQuery(name: PropertyKey): QueryInstance {
@@ -130,16 +129,16 @@ export function createSagaContext(
   function* waitForMutationResolution(
     instance: MutationInstance,
   ): SagaGen<{ data: unknown } | { error: unknown }> {
-    const { succeeded, failed } = yield* race({
-      succeeded: take(instance.on.succeeded.match),
-      failed: take(instance.on.failed.match),
+    const { fulfilled, rejected } = yield* race({
+      fulfilled: take(instance.matchFulfilled),
+      rejected: take(instance.matchRejected),
     });
 
-    if (failed) {
-      return { error: (failed as any).payload.error };
+    if (rejected) {
+      return { error: (rejected as any).payload.error };
     }
 
-    return { data: (succeeded as any).payload.data };
+    return { data: (fulfilled as any).payload.data };
   }
 
   function resolveMutation(nameOrInstance: PropertyKey | MutationInstance): MutationInstance {

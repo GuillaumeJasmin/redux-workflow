@@ -4,13 +4,7 @@ import { call, put, select, take, fork, cancel, delay, all } from 'typed-redux-s
 import type { Task } from 'redux-saga';
 import type { Action, ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
 import { buildCacheKey } from '../utils/cacheKey';
-import {
-  buildExecuteCallContext,
-  getActionTypes,
-  isErrorResult,
-  toArray,
-  toErrorMessage,
-} from './actionHelpers';
+import { buildExecuteCallContext, isErrorResult, toArray, toErrorMessage } from './actionHelpers';
 import type { QueryInstance, SagaGen } from '../createApi/types';
 
 function createQuerySaga(
@@ -20,22 +14,22 @@ function createQuerySaga(
   const { _def: def } = instance;
 
   function* runFetch(args: unknown, cacheKey: string): SagaGen<boolean> {
-    yield* put(instance.on.pending({ args, cacheKey } as any));
+    yield* put(instance._pendingAction({ args, cacheKey } as any));
 
     try {
       const ctx = yield* buildExecuteCallContext();
       const result: any = yield* call(def.execute as any, args as any, ctx as any);
 
       if (isErrorResult(result)) {
-        yield* put(instance.on.failed({ args, cacheKey, error: result.error } as any));
+        yield* put(instance._rejectedAction({ args, cacheKey, error: result.error } as any));
         return false;
       }
 
-      yield* put(instance.on.succeeded({ args, cacheKey, data: result?.data } as any));
+      yield* put(instance._fulfilledAction({ args, cacheKey, data: result?.data } as any));
       return true;
     } catch (error) {
       const message = toErrorMessage(error);
-      yield* put(instance.on.failed({ args, cacheKey, error: message } as any));
+      yield* put(instance._rejectedAction({ args, cacheKey, error: message } as any));
       return false;
     }
   }
@@ -100,14 +94,15 @@ function* watchInstance(
   invalidateCache: ActionCreatorWithPayload<{ cacheKey: string }>,
 ): SagaGen<void> {
   const saga = createQuerySaga(instance, invalidateCache);
-  const listenTypes = getActionTypes(toArray(instance._def.listen));
-  const acceptedTypes = [instance.trigger.type, ...listenTypes];
+  const listenPredicates = toArray(instance._def.listen);
+  const triggerType = instance.trigger.type;
 
   const tasks: Record<string, Task> = {};
 
   while (true) {
-    const action = (yield* take((candidate: Action) =>
-      acceptedTypes.includes(candidate.type),
+    const action = (yield* take(
+      (candidate: Action) =>
+        candidate.type === triggerType || listenPredicates.some((p) => p(candidate)),
     )) as PayloadAction<any>;
 
     const cacheKey = buildCacheKey(instance._key, action.payload);

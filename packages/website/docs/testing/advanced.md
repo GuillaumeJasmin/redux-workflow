@@ -22,5 +22,5 @@ beforeEach(() => {
 `flush()` resolves on the next tick (`setImmediate`) — it covers sagas that
 settle synchronously or with microtasks. For multi-tick workflows (timers,
 streaming), use `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync`. A
-`waitForAction(instance.on.succeeded)` primitive may be added if patterns
+`waitForAction(instance.matchFulfilled)` primitive may be added if patterns
 accumulate.

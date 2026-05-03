@@ -228,10 +228,8 @@ describe('useQuery — single mount fires lifecycle once (strict-mode safe)', ()
 
     const counts = {
       trigger: dispatchedActions.filter((a) => a.type === api.queries.getUser.trigger.type).length,
-      pending: dispatchedActions.filter((a) => a.type === api.queries.getUser.on.pending.type)
-        .length,
-      succeeded: dispatchedActions.filter((a) => a.type === api.queries.getUser.on.succeeded.type)
-        .length,
+      pending: dispatchedActions.filter(api.queries.getUser.matchPending).length,
+      succeeded: dispatchedActions.filter(api.queries.getUser.matchFulfilled).length,
       firstSubscribe: dispatchedActions.filter(
         (a) => a.type === api.queries.getUser.firstSubscribe.type,
       ).length,
