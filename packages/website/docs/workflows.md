@@ -223,7 +223,7 @@ workflows: (workflow) => ({
 ```
 
 For testing apis that depend on others, see
-[Mocking dependent apis](/docs/testing#mocking-dependent-apis).
+[Mocking dependent apis](/docs/testing/mocking-dependent-apis).
 
 ## Referencing queries / mutations at the def level
 

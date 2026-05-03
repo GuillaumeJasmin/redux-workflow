@@ -23,8 +23,19 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Testing',
+      link: { type: 'doc', id: 'testing/index' },
+      items: [
+        'testing/assertions',
+        'testing/dispatched-actions',
+        'testing/mocking-dependent-apis',
+        'testing/advanced',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Guides',
-      items: ['architecture', 'testing', 'rtk-query-comparison'],
+      items: ['architecture', 'rtk-query-comparison'],
     },
     'recipes',
     {
