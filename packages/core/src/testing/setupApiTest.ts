@@ -18,6 +18,7 @@ import type {
   WorkflowInstance,
 } from '../createApi/types';
 import { MutationAssertion, QueryAssertion, SliceAssertion, WorkflowAssertion } from './assertions';
+import { runInterceptorSaga, type MockSpec } from './mockApi';
 
 /**
  * Accepted shapes for `hasDispatchedAction` / `hasNoDispatchedAction`:
@@ -44,6 +45,13 @@ type SliceState<TSlice> =
 export interface SetupApiTestOptions<TSlice extends SliceLike | undefined> {
   api: ApiInstance<any, any, any>;
   slice?: TSlice;
+  /**
+   * Apis the primary one depends on, with mocked query/mutation
+   * runtimes. Each mock api's reducer is mounted normally; its rootSaga
+   * is replaced by an interceptor that emits the supplied results
+   * instead of running the real `execute` functions.
+   */
+  mocks?: MockSpec[];
 }
 
 export interface ApiTestThen<TSlice extends SliceLike | undefined> {
@@ -77,17 +85,17 @@ export interface SetupApiTestResult<TSlice extends SliceLike | undefined> {
 export function setupApiTest<TSlice extends SliceLike | undefined = undefined>(
   options: SetupApiTestOptions<TSlice>,
 ): SetupApiTestResult<TSlice> {
-  const { api, slice } = options;
+  const { api, slice, mocks } = options;
 
   let store: Store | null = null;
-  let sagaTask: Task | null = null;
+  let sagaTasks: Task[] = [];
   let dispatchedActions: Action[] = [];
 
   function reset() {
-    if (sagaTask) {
-      sagaTask.cancel();
-      sagaTask = null;
+    for (const task of sagaTasks) {
+      task.cancel();
     }
+    sagaTasks = [];
     dispatchedActions = [];
 
     const captureMiddleware = () => (next: (action: unknown) => unknown) => (action: unknown) => {
@@ -97,17 +105,21 @@ export function setupApiTest<TSlice extends SliceLike | undefined = undefined>(
 
     const sagaMiddleware = createSagaMiddleware();
 
-    const reducer = slice
-      ? combineReducers({
-          [api.reducerPath]: api.reducer,
-          [slice.name]: slice.reducer,
-        })
-      : combineReducers({
-          [api.reducerPath]: api.reducer,
-        });
+    const reducerMap: Record<string, Reducer> = {
+      [api.reducerPath]: api.reducer,
+    };
+    if (slice) {
+      reducerMap[slice.name] = slice.reducer;
+    }
+    // Mount each mocked api's reducer at its own reducerPath. Cache state
+    // for mocked queries lands in the right subtree, exactly as in
+    // production.
+    for (const mock of mocks ?? []) {
+      reducerMap[mock.api.reducerPath] = mock.api.reducer;
+    }
 
     const newStore = configureStore({
-      reducer,
+      reducer: combineReducers(reducerMap),
       middleware: (getDefault) =>
         getDefault({ serializableCheck: false, thunk: false })
           .concat(captureMiddleware as any)
@@ -116,7 +128,19 @@ export function setupApiTest<TSlice extends SliceLike | undefined = undefined>(
     store = newStore;
 
     sagaMiddleware.setContext({ getState: () => newStore.getState() });
-    sagaTask = sagaMiddleware.run(api.rootSaga);
+
+    // Primary api runs its real rootSaga.
+    sagaTasks.push(sagaMiddleware.run(api.rootSaga));
+
+    // Each mocked api runs the interceptor instead of its real rootSaga.
+    for (const mock of mocks ?? []) {
+      const spec = mock;
+      sagaTasks.push(
+        sagaMiddleware.run(function* () {
+          yield* runInterceptorSaga(spec);
+        }),
+      );
+    }
   }
 
   reset();

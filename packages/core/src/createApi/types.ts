@@ -126,23 +126,58 @@ export type BoundSelectors<TSelectors> = {
 type CacheUpdater<TResult> = TResult | ((previous: TResult | null) => TResult);
 
 export type ExecuteContext<QDefs = any, MDefs = any> = {
-  query: <K extends keyof QDefs>(
-    name: K,
-    args: QueryArgs<QDefs, K>,
-  ) => SagaGen<QueryResultShape<QueryResult<QDefs, K>>>;
-  mutate: <K extends keyof MDefs>(
-    name: K,
-    args: MutationArgs<MDefs, K>,
-  ) => SagaGen<QueryResultShape<MutationResult<MDefs, K>>>;
-  getCache: <K extends keyof QDefs>(
-    name: K,
-    args: QueryArgs<QDefs, K>,
-  ) => SagaGen<QueryResult<QDefs, K> | null>;
-  patchCache: <K extends keyof QDefs>(
-    name: K,
-    args: QueryArgs<QDefs, K>,
-    data: CacheUpdater<QueryResult<QDefs, K>>,
-  ) => SagaGen<void>;
+  /**
+   * Run a query and wait for its result. Two forms:
+   *  - `query('name', args)` — own api's queries by name (typed via QDefs).
+   *  - `query(instance, args)` — any api's query by instance reference
+   *    (typed via the instance's own generics). Use this for queries
+   *    that live on an external api you imported.
+   */
+  query: {
+    <K extends keyof QDefs>(
+      name: K,
+      args: QueryArgs<QDefs, K>,
+    ): SagaGen<QueryResultShape<QueryResult<QDefs, K>>>;
+    <TResult, TArgs>(
+      instance: QueryInstance<TResult, TArgs>,
+      args: TArgs,
+    ): SagaGen<QueryResultShape<TResult>>;
+  };
+  /**
+   * Run a mutation and wait for its result. Same overload pattern as
+   * `query`: pass a name (own api) or an instance (any api).
+   */
+  mutate: {
+    <K extends keyof MDefs>(
+      name: K,
+      args: MutationArgs<MDefs, K>,
+    ): SagaGen<QueryResultShape<MutationResult<MDefs, K>>>;
+    <TResult, TArgs>(
+      instance: MutationInstance<TResult, TArgs>,
+      args: TArgs,
+    ): SagaGen<QueryResultShape<TResult>>;
+  };
+  /** Read a cache entry. Accepts a name (own api) or a query instance (any api). */
+  getCache: {
+    <K extends keyof QDefs>(
+      name: K,
+      args: QueryArgs<QDefs, K>,
+    ): SagaGen<QueryResult<QDefs, K> | null>;
+    <TResult, TArgs>(instance: QueryInstance<TResult, TArgs>, args: TArgs): SagaGen<TResult | null>;
+  };
+  /** Patch a cache entry. Accepts a name (own api) or a query instance (any api). */
+  patchCache: {
+    <K extends keyof QDefs>(
+      name: K,
+      args: QueryArgs<QDefs, K>,
+      data: CacheUpdater<QueryResult<QDefs, K>>,
+    ): SagaGen<void>;
+    <TResult, TArgs>(
+      instance: QueryInstance<TResult, TArgs>,
+      args: TArgs,
+      data: CacheUpdater<TResult>,
+    ): SagaGen<void>;
+  };
   select: <TResult>(selector: (state: any) => TResult) => SagaGen<TResult>;
   put: (action: Action) => SagaGen<void>;
 };

@@ -12,8 +12,12 @@ export function createSagaContext(
   mutationInstances: Record<string, MutationInstance>,
   patchCacheAction: ActionCreatorWithPayload<{ cacheKey: string; data: unknown }>,
 ): ExecuteContext {
-  function selectCacheEntry(state: any, cacheKey: string): CacheEntry | undefined {
-    return state[reducerPath]?.queries?.[cacheKey];
+  function selectCacheEntry(
+    state: any,
+    instanceReducerPath: string,
+    cacheKey: string,
+  ): CacheEntry | undefined {
+    return state[instanceReducerPath]?.queries?.[cacheKey];
   }
 
   function* waitForQueryResolution(
@@ -45,14 +49,28 @@ export function createSagaContext(
     return instance;
   }
 
+  // Resolve either a name (own api lookup) or a passed instance (any api).
+  function resolveQuery(nameOrInstance: PropertyKey | QueryInstance): QueryInstance {
+    if (
+      typeof nameOrInstance === 'string' ||
+      typeof nameOrInstance === 'number' ||
+      typeof nameOrInstance === 'symbol'
+    ) {
+      return lookupQuery(nameOrInstance);
+    }
+    return nameOrInstance;
+  }
+
   function* runQuery(
-    name: PropertyKey,
+    nameOrInstance: PropertyKey | QueryInstance,
     args: unknown,
   ): SagaGen<{ data: unknown } | { error: unknown }> {
-    const instance = lookupQuery(name);
+    const instance = resolveQuery(nameOrInstance);
     const cacheKey = buildCacheKey(instance._key, args);
 
-    const entry = yield* select((state: any) => selectCacheEntry(state, cacheKey));
+    const entry = yield* select((state: any) =>
+      selectCacheEntry(state, instance._reducerPath, cacheKey),
+    );
 
     if (entry?.status === 'fulfilled' && !isCacheStale(entry, instance._def.cache)) {
       return { data: entry.data };
@@ -66,24 +84,47 @@ export function createSagaContext(
     return yield* waitForQueryResolution(instance, cacheKey);
   }
 
-  function* runGetCache(name: PropertyKey, args: unknown): SagaGen {
-    const instance = lookupQuery(name);
+  function* runGetCache(nameOrInstance: PropertyKey | QueryInstance, args: unknown): SagaGen {
+    const instance = resolveQuery(nameOrInstance);
     const cacheKey = buildCacheKey(instance._key, args);
-    const entry = yield* select((state: any) => selectCacheEntry(state, cacheKey));
+    const entry = yield* select((state: any) =>
+      selectCacheEntry(state, instance._reducerPath, cacheKey),
+    );
     return entry?.data ?? null;
   }
 
-  function* runPatchCache(name: PropertyKey, args: unknown, data: unknown): SagaGen<void> {
-    const instance = lookupQuery(name);
+  function* runPatchCache(
+    nameOrInstance: PropertyKey | QueryInstance,
+    args: unknown,
+    data: unknown,
+  ): SagaGen<void> {
+    const instance = resolveQuery(nameOrInstance);
     const cacheKey = buildCacheKey(instance._key, args);
 
     let nextData: unknown = data;
     if (typeof data === 'function') {
-      const entry = yield* select((state: any) => selectCacheEntry(state, cacheKey));
+      const entry = yield* select((state: any) =>
+        selectCacheEntry(state, instance._reducerPath, cacheKey),
+      );
       nextData = (data as (previous: unknown) => unknown)(entry?.data ?? null);
     }
 
-    yield* put(patchCacheAction({ cacheKey, data: nextData }));
+    // For cross-api patches, the patchCache action is for THIS api's
+    // cache slice. Use the instance's own cross-api dispatch path: we
+    // need to dispatch to the correct slice. For now, the patchCache
+    // action only has cacheKey + data; the slice that handles it is
+    // the one whose reducerPath matches the instance.
+    if (instance._reducerPath === reducerPath) {
+      yield* put(patchCacheAction({ cacheKey, data: nextData }));
+    } else {
+      // Cross-api patch — dispatch a patch action keyed at the foreign
+      // api's slice. We synthesize the action type the foreign slice
+      // listens for: `${foreignApiName}/patchCache`.
+      yield* put({
+        type: `${instance._reducerPath}/patchCache`,
+        payload: { cacheKey, data: nextData },
+      });
+    }
   }
 
   function* waitForMutationResolution(
@@ -101,17 +142,28 @@ export function createSagaContext(
     return { data: (succeeded as any).payload.data };
   }
 
+  function resolveMutation(nameOrInstance: PropertyKey | MutationInstance): MutationInstance {
+    if (
+      typeof nameOrInstance === 'string' ||
+      typeof nameOrInstance === 'number' ||
+      typeof nameOrInstance === 'symbol'
+    ) {
+      const instance = mutationInstances[nameOrInstance as string];
+      if (!instance) {
+        throw new Error(
+          `[redux-workflow] mutation "${String(nameOrInstance)}" not found in api "${reducerPath}"`,
+        );
+      }
+      return instance;
+    }
+    return nameOrInstance;
+  }
+
   function* runMutation(
-    name: PropertyKey,
+    nameOrInstance: PropertyKey | MutationInstance,
     args: unknown,
   ): SagaGen<{ data: unknown } | { error: unknown }> {
-    const instance = mutationInstances[name as string];
-    if (!instance) {
-      throw new Error(
-        `[redux-workflow] mutation "${String(name)}" not found in api "${reducerPath}"`,
-      );
-    }
-
+    const instance = resolveMutation(nameOrInstance);
     yield* put(instance.trigger(args as any));
     return yield* waitForMutationResolution(instance);
   }
