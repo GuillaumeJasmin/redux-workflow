@@ -260,8 +260,8 @@ const api = createApi({
 
   workflows: (workflow, { queries }) => ({
     streamMessages: workflow({
-      listen: queries.messages.firstSubscribe.match,
-      dismiss: queries.messages.lastUnsubscribe.match,
+      listen: queries.messages.matchFirstSubscribe,
+      dismiss: queries.messages.matchLastUnsubscribe,
       *execute({ args, cacheKey }: { args: { roomId: string }; cacheKey: string }, { patchCache }) {
         const socket = new WebSocket(`/rooms/${args.roomId}/stream`);
         const channel = eventChannelFromSocket(socket);

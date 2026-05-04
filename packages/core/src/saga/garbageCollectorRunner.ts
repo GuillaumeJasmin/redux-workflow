@@ -54,14 +54,14 @@ export function createWatchGarbageCollector(
         const timer = gcTimers[cacheKey];
         if (timer?.isRunning()) yield* cancel(timer);
         delete gcTimers[cacheKey];
-        if (instance) yield* put(instance.firstSubscribe({ args, cacheKey }));
+        if (instance) yield* put(instance._firstSubscribe({ args, cacheKey }));
         reportedState[cacheKey] = 'positive';
         return;
       }
 
       // count === 0
       if (previous === 'positive' && instance) {
-        yield* put(instance.lastUnsubscribe({ args, cacheKey }));
+        yield* put(instance._lastUnsubscribe({ args, cacheKey }));
       }
       reportedState[cacheKey] = 'zero';
 

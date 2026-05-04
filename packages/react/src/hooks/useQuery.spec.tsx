@@ -230,12 +230,8 @@ describe('useQuery — single mount fires lifecycle once (strict-mode safe)', ()
       trigger: dispatchedActions.filter((a) => a.type === api.queries.getUser.trigger.type).length,
       pending: dispatchedActions.filter(api.queries.getUser.matchPending).length,
       succeeded: dispatchedActions.filter(api.queries.getUser.matchFulfilled).length,
-      firstSubscribe: dispatchedActions.filter(
-        (a) => a.type === api.queries.getUser.firstSubscribe.type,
-      ).length,
-      lastUnsubscribe: dispatchedActions.filter(
-        (a) => a.type === api.queries.getUser.lastUnsubscribe.type,
-      ).length,
+      firstSubscribe: dispatchedActions.filter(api.queries.getUser.matchFirstSubscribe).length,
+      lastUnsubscribe: dispatchedActions.filter(api.queries.getUser.matchLastUnsubscribe).length,
     };
 
     expect(counts).toEqual({

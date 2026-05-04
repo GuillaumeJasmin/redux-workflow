@@ -265,6 +265,10 @@ function buildQueryInstances(
     const pendingAction = createInstanceAction<any>(`${key}/pending`, 'query', 'pending');
     const fulfilledAction = createInstanceAction<any>(`${key}/fulfilled`, 'query', 'fulfilled');
     const rejectedAction = createInstanceAction<any>(`${key}/rejected`, 'query', 'rejected');
+    const firstSubscribeAction = createAction<QueryLifecyclePayload<any>>(`${key}/firstSubscribe`);
+    const lastUnsubscribeAction = createAction<QueryLifecyclePayload<any>>(
+      `${key}/lastUnsubscribe`,
+    );
 
     result[queryName] = {
       _key: key,
@@ -278,12 +282,14 @@ function buildQueryInstances(
       _pendingAction: pendingAction,
       _fulfilledAction: fulfilledAction,
       _rejectedAction: rejectedAction,
+      _firstSubscribe: firstSubscribeAction,
+      _lastUnsubscribe: lastUnsubscribeAction,
       trigger: createAction<any>(`${key}/trigger`),
-      firstSubscribe: createAction<QueryLifecyclePayload<any>>(`${key}/firstSubscribe`),
-      lastUnsubscribe: createAction<QueryLifecyclePayload<any>>(`${key}/lastUnsubscribe`),
       matchPending: pendingAction.match,
       matchFulfilled: fulfilledAction.match,
       matchRejected: rejectedAction.match,
+      matchFirstSubscribe: firstSubscribeAction.match,
+      matchLastUnsubscribe: lastUnsubscribeAction.match,
     };
   }
 

@@ -312,16 +312,12 @@ export type QueryInstance<TResult = any, TArgs = any> = {
   _rejectedAction: ActionCreatorWithPayload<QueryRejectedPayload<TArgs>>;
   trigger: ActionCreatorWithPayload<TArgs>;
   /**
-   * Dispatched when the subscriber count transitions from 0 to 1 for a given
-   * cacheKey — i.e. the first mount subscribes. Useful as a workflow trigger
-   * for things like opening a websocket tied to this query entry.
+   * Internal — action creators dispatched by the runner when the subscriber
+   * count transitions 0→1 (`_firstSubscribe`) or 1→0 (`_lastUnsubscribe`).
+   * Public code should use the `*Matcher` predicates instead.
    */
-  firstSubscribe: ActionCreatorWithPayload<QueryLifecyclePayload<TArgs>>;
-  /**
-   * Dispatched when the subscriber count transitions from 1 to 0 — i.e. the
-   * last mount unsubscribes. Fires before the gc timer starts.
-   */
-  lastUnsubscribe: ActionCreatorWithPayload<QueryLifecyclePayload<TArgs>>;
+  _firstSubscribe: ActionCreatorWithPayload<QueryLifecyclePayload<TArgs>>;
+  _lastUnsubscribe: ActionCreatorWithPayload<QueryLifecyclePayload<TArgs>>;
   /**
    * RTK Query-style matcher predicates. Use directly with
    * `builder.addMatcher(...)` or as a `listen` target.
@@ -329,6 +325,17 @@ export type QueryInstance<TResult = any, TArgs = any> = {
   matchPending: Matcher<QueryPendingPayload<TArgs>>;
   matchFulfilled: Matcher<QueryFulfilledPayload<TResult, TArgs>>;
   matchRejected: Matcher<QueryRejectedPayload<TArgs>>;
+  /**
+   * Predicate that matches when the subscriber count transitions 0→1 for
+   * a given cacheKey — i.e. the first mount subscribes. Useful as a
+   * workflow `listen` target (e.g. opening a websocket tied to this query).
+   */
+  matchFirstSubscribe: Matcher<QueryLifecyclePayload<TArgs>>;
+  /**
+   * Predicate that matches when the subscriber count transitions 1→0 — i.e.
+   * the last mount unsubscribes. Fires before the gc timer starts.
+   */
+  matchLastUnsubscribe: Matcher<QueryLifecyclePayload<TArgs>>;
 };
 
 type MutationPendingPayload<TArgs> = {

@@ -13,7 +13,7 @@ title: Cheat sheet
 | Optimistic UI with rollback                       | `onStart` / `onError` on the mutation                                           |
 | Run something complex when a domain event happens | Workflow with `listen`                                                          |
 | Cancel the complex thing cleanly                  | Workflow `dismiss` + `finally`                                                  |
-| Open a websocket tied to a query's lifetime       | Workflow `listen: q.firstSubscribe.match`, `dismiss: q.lastUnsubscribe.match`   |
+| Open a websocket tied to a query's lifetime       | Workflow `listen: q.matchFirstSubscribe`, `dismiss: q.matchLastUnsubscribe`     |
 | Write data into the cache without a fetch         | `ctx.patchCache` (inside mutation/workflow) or dispatch `api.patchCache` action |
 | Force a refresh                                   | `api.invalidateCache({ cacheKey })`                                             |
 | Clear everything                                  | `api.resetCache()`                                                              |

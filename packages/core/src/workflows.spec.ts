@@ -268,8 +268,8 @@ describe('redux-workflow workflows — streaming pattern', () => {
       }),
       workflows: (workflow, { queries }) => ({
         streamMessages: workflow({
-          listen: queries.messages.firstSubscribe.match,
-          dismiss: queries.messages.lastUnsubscribe.match,
+          listen: queries.messages.matchFirstSubscribe,
+          dismiss: queries.messages.matchLastUnsubscribe,
           *execute(payload: { args: { roomId: string }; cacheKey: string }, { patchCache }) {
             opened.push(payload.args.roomId);
             try {
