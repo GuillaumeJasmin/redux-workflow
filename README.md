@@ -13,6 +13,9 @@
   <p>
     <a href="./LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
     <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" />
+    <a href="https://bundlejs.com/?q=%40redux-workflow%2Fcore"><img alt="core bundle size" src="https://img.shields.io/bundlejs/size/@redux-workflow/core?label=core" /></a>
+    <a href="https://bundlejs.com/?q=%40redux-workflow%2Freact"><img alt="react bundle size" src="https://img.shields.io/bundlejs/size/@redux-workflow/react?label=react" /></a>
+    <a href="https://bundlejs.com/?q=%40redux-workflow%2Feslint-plugin"><img alt="eslint-plugin bundle size" src="https://img.shields.io/bundlejs/size/@redux-workflow/eslint-plugin?label=eslint-plugin" /></a>
     <img alt="status" src="https://img.shields.io/badge/status-beta-yellow" />
   </p>
 </div>
