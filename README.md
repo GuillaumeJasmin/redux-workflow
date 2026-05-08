@@ -180,6 +180,10 @@ component already loaded it.
 
 ## Documentation
 
+Not yet published. Run `pnpm start` and choose `launch-website`
+
+<!--
+
 Full docs live at **[redux-workflow.dev](https://redux-workflow.dev)** (or run
 `pnpm --filter @redux-workflow/website start` locally).
 
@@ -192,6 +196,8 @@ Full docs live at **[redux-workflow.dev](https://redux-workflow.dev)** (or run
 - [Architecture](https://redux-workflow.dev/docs/architecture) — circular-import patterns, recipes
 - [Testing](https://redux-workflow.dev/docs/testing) — `setupApiTest` + chainable assertions
 - [Publishing](https://redux-workflow.dev/docs/publishing) — release flow with Changesets
+
+ -->
 
 ## Contributing
 
