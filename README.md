@@ -95,6 +95,89 @@ function UserCard({ id }: { id: string }) {
 }
 ```
 
+## Workflow example
+
+Workflows orchestrate multi-step async work. They can call queries and
+mutations, dispatch actions, listen to domain events, and cancel cleanly.
+
+```ts
+import { createApi } from '@redux-workflow/core';
+
+const checkoutApi = createApi({
+  name: 'checkoutApi',
+  queries: (query) => ({
+    fetchCart: query({
+      async execute({ cartId }: { cartId: string }) {
+        const res = await fetch(`https://api.website.com/carts/${cartId}`);
+        return { data: await res.json() };
+      },
+    }),
+  }),
+  mutations: (mutation) => ({
+    pay: mutation({
+      async execute({ cartId }: { cartId: string }) {
+        const res = await fetch(`https://api.website.com/carts/${cartId}/pay`, { method: 'POST' });
+        return { data: await res.json() };
+      },
+      invalidates: ['fetchCart'],
+    }),
+  }),
+  workflows: (workflow) => ({
+    checkout: workflow({
+      *execute({ cartId }: { cartId: string }, { query, mutate }) {
+        const cart = yield* query('fetchCart', { cartId });
+
+        if ('error' in cart) return { error: cart.error };
+
+        if (cart.data.items.length === 0) {
+          return { error: new Error('empty cart') };
+        }
+
+        return yield* mutate('pay', { cartId });
+      },
+    }),
+  }),
+});
+
+export const { useFetchCart, useCheckoutWorkflow } = createReactHooks(checkoutApi);
+```
+
+Trigger it from a component with `useWorkflow`:
+
+```tsx
+import { useQuery, useWorkflow } from '@redux-workflow/react';
+
+type CheckoutProps = {
+  cartId: string;
+};
+
+function Checkout({ cartId }: CheckoutProps) {
+  const { data: cart, isLoading: isCartLoading } = useFetchCart({ cartId });
+  const [checkout, { isLoading, isSuccess }] = useCheckoutWorkflow();
+
+  if (isCartLoading) return <Spinner />;
+
+  return (
+    <div>
+      <ul>
+        {cart.items.map((item) => (
+          <li key={item.id}>
+            {item.name} — ${item.price}
+          </li>
+        ))}
+      </ul>
+      <button disabled={isLoading} onClick={() => checkout({ cartId })}>
+        {isSuccess ? 'Paid' : `Pay (${cart.items.length} items)`}
+      </button>
+    </div>
+  );
+}
+```
+
+`useQuery` hits the same cache that `checkout` reads inside `*execute`, so
+the workflow's `query('fetchCart', ...)` returns immediately if the
+component already loaded it.
+
 ## Documentation
 
 Full docs live at **[redux-workflow.dev](https://redux-workflow.dev)** (or run
