@@ -2,9 +2,9 @@
 
 import { call, put, select, take, fork, cancel, delay, all } from 'typed-redux-saga';
 import type { Task } from 'redux-saga';
-import type { Action, ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
+import type { ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
 import { buildCacheKey } from '../utils/cacheKey';
-import { buildExecuteCallContext, isErrorResult, toArray, toErrorMessage } from './actionHelpers';
+import { buildExecuteCallContext, isErrorResult, toErrorMessage } from './actionHelpers';
 import type { QueryInstance, SagaGen } from '../createApi/types';
 
 function createQuerySaga(
@@ -88,8 +88,7 @@ export function createWatchQueryTriggers(
 //     (prevents double-fetch on concurrent mounts of the same query + args).
 //   - exception: if the trigger carries `meta.forceRefetch`, bypass the
 //     pending drop so the in-flight task is cancelled and a fresh fetch
-//     runs (matches RTK Query's `refetch()` semantics; dispatched by
-//     `ctx.query(..., { forceRefetch: true })`).
+//     runs (dispatched by `ctx.query(..., { forceRefetch: true })`).
 //   - otherwise, different args run in parallel; a same-args re-trigger after
 //     the first settles replaces the prior task.
 function* watchInstance(
@@ -98,16 +97,11 @@ function* watchInstance(
   invalidateCache: ActionCreatorWithPayload<{ cacheKey: string }>,
 ): SagaGen<void> {
   const saga = createQuerySaga(instance, invalidateCache);
-  const listenPredicates = toArray(instance._def.listen);
-  const triggerType = instance.trigger.type;
 
   const tasks: Record<string, Task> = {};
 
   while (true) {
-    const action = (yield* take(
-      (candidate: Action) =>
-        candidate.type === triggerType || listenPredicates.some((p) => p(candidate)),
-    )) as PayloadAction<any>;
+    const action = yield* take(instance.trigger.match);
 
     const cacheKey = buildCacheKey(instance._key, action.payload);
 

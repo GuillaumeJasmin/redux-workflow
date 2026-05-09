@@ -224,7 +224,6 @@ export type QueryDefinition<TResult = unknown, TArgs = void> = {
    * Matches RTK Query's `keepUnusedDataFor` option name and semantics.
    */
   keepUnusedDataFor?: number;
-  listen?: ActionPredicate | ActionPredicate[];
   /**
    * Refetch every currently-subscribed cache entry of this query when the
    * app regains focus. Wire the platform focus signal with `setupListeners`.
@@ -241,7 +240,6 @@ export type QueryDefinition<TResult = unknown, TArgs = void> = {
 export type MutationDefinition<TResult = unknown, TArgs = void, QDefs = any> = {
   execute: (args: TArgs, ctx: ExecuteCallContext) => SagaOrPromise<QueryResultShape<TResult>>;
   invalidates?: Extract<keyof QDefs, string>[];
-  listen?: ActionPredicate | ActionPredicate[];
   /**
    * Runs before `execute`. Its return value is handed to `onError` for rollback.
    * Typical use: optimistic update via `ctx.patchCache(...)`.

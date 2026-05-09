@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { call, put, select, takeEvery, all } from 'typed-redux-saga';
-import type { Action, ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
-import { buildExecuteCallContext, isErrorResult, toArray, toErrorMessage } from './actionHelpers';
+import type { ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
+import { buildExecuteCallContext, isErrorResult, toErrorMessage } from './actionHelpers';
 import { createSagaContext } from './sagaContext';
 import type { MutationInstance, QueryInstance, SagaGen } from '../createApi/types';
 import type { CacheState } from '../store/cacheSlice';
@@ -109,14 +109,8 @@ export function createWatchMutationTriggers(
         patchCache,
         mutationInstances,
       );
-      const listenPredicates = toArray(instance._def.listen);
-      const triggerType = instance.trigger.type;
       return call(function* () {
-        yield* takeEvery(
-          (action: Action) =>
-            action.type === triggerType || listenPredicates.some((p) => p(action)),
-          saga,
-        );
+        yield* takeEvery(instance.trigger.match, saga);
       });
     });
 

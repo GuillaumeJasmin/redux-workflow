@@ -61,21 +61,34 @@ mutations: (mutation) => ({
 `invalidates` is type-checked against the declared queries — typos are caught
 at compile time.
 
-## `listen` on mutations
+## Auto-triggering on a domain action
 
-Like queries, mutations can auto-fire on a domain action:
+To fire a mutation in response to a domain action, declare a workflow
+that listens for the action and calls the mutation through `ctx.mutate`:
 
 ```ts
 const alertAcknowledged = createAction<{ alertId: string }>('alerts/ack');
 
-acknowledgeAlert: mutation({
-  listen: alertAcknowledged.match,
-  execute: httpRequest<null, { alertId: string }>({
-    url: ({ alertId }) => `/alerts/${alertId}/ack`,
-    method: 'POST',
+createApi({
+  name: 'alerts',
+  mutations: (mutation) => ({
+    acknowledgeAlert: mutation({
+      execute: httpRequest<null, { alertId: string }>({
+        url: ({ alertId }) => `/alerts/${alertId}/ack`,
+        method: 'POST',
+      }),
+      invalidates: ['getAlerts'],
+    }),
   }),
-  invalidates: ['getAlerts'],
-}),
+  workflows: (workflow) => ({
+    onAlertAcknowledged: workflow({
+      listen: alertAcknowledged.match,
+      *execute({ alertId }: { alertId: string }, { mutate }) {
+        yield* mutate('acknowledgeAlert', { alertId });
+      },
+    }),
+  }),
+});
 ```
 
 ## Optimistic updates — `onStart` + `onError`

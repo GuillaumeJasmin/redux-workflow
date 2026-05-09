@@ -15,7 +15,6 @@ function buildApi(fetchGameImpl: (id: string) => Promise<Game>) {
     name: 'gameApi',
     queries: (query) => ({
       fetchGame: query({
-        listen: enteredDashboard.match,
         *execute({ id }: { id: string }) {
           try {
             const data = yield* call(() => fetchGameImpl(id));
@@ -33,6 +32,14 @@ function buildApi(fetchGameImpl: (id: string) => Promise<Game>) {
           return { data };
         },
         invalidates: ['fetchGame'],
+      }),
+    }),
+    workflows: (workflow) => ({
+      onEnterDashboard: workflow({
+        listen: enteredDashboard.match,
+        *execute(args: { id: string }, { query }) {
+          yield* query('fetchGame', { id: args.id });
+        },
       }),
     }),
   });

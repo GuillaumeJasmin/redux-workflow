@@ -1,7 +1,6 @@
 /* eslint-disable require-yield */
 
-import { describe, it, expect, vi } from 'vitest';
-import { createAction } from '@reduxjs/toolkit';
+import { describe, it, expect } from 'vitest';
 import { createApi, buildCacheKey } from './index';
 import { setupStore, getCache, getMutation } from './testing';
 
@@ -27,34 +26,6 @@ describe('redux-workflow mutations', () => {
       status: 'fulfilled',
       data: { savedId: 'x' },
       error: null,
-    });
-  });
-
-  it('auto-runs on listen action', async () => {
-    const alertAcknowledged = createAction<{ alertId: string }>('alerts/acknowledged');
-    const executeSpy = vi.fn();
-
-    const api = createApi({
-      name: 'test',
-      mutations: (mutation) => ({
-        acknowledge: mutation({
-          listen: alertAcknowledged.match,
-          *execute(args: { alertId: string }) {
-            executeSpy(args);
-            return { data: null };
-          },
-        }),
-      }),
-    });
-
-    const { store, flush } = setupStore(api);
-
-    store.dispatch(alertAcknowledged({ alertId: 'a1' }));
-    await flush();
-
-    expect(executeSpy).toHaveBeenCalledWith({ alertId: 'a1' });
-    expect(getMutation(store, api.reducerPath, api.mutations.acknowledge._key)).toMatchObject({
-      status: 'fulfilled',
     });
   });
 

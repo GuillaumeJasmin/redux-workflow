@@ -155,7 +155,6 @@ body when you'd otherwise reach for `yield* select(...)`:
 
 ```ts
 createPost: mutation({
-  listen: createPostAction.match,
   async execute({ title, body }, { getState }) {
     const user = selectAuthenticatedUser(getState());
     if (!user) return { error: 'USER_NOT_FOUND' };
@@ -203,24 +202,40 @@ getAlerts: query({
 }),
 ```
 
-## `listen` — auto-trigger on a domain action
+## Auto-triggering on a domain action
+
+To fire a query in response to a domain action, declare a workflow
+that listens for the action and calls the query through `ctx.query`:
 
 ```ts
 import { createAction } from '@reduxjs/toolkit';
 
 const pageEntered = createAction<{ postId: string }>('postPage/pageEntered');
 
-getPost: query({
-  listen: pageEntered.match, // action payload is used as args
-  async execute({ postId }: { postId: string }) {
-    const data = await fetchPost(postId);
-    return { data };
-  },
-  cache: 60,
-}),
+createApi({
+  name: 'posts',
+  queries: (query) => ({
+    getPost: query({
+      async execute({ postId }: { postId: string }) {
+        const data = await fetchPost(postId);
+        return { data };
+      },
+      cache: 60,
+    }),
+  }),
+  workflows: (workflow) => ({
+    onPageEntered: workflow({
+      listen: pageEntered.match,
+      *execute({ postId }: { postId: string }, { query }) {
+        yield* query('getPost', { postId });
+      },
+    }),
+  }),
+});
 ```
 
-Dispatching `pageEntered({ postId: 'p1' })` fires the fetch.
+Dispatching `pageEntered({ postId: 'p1' })` runs the workflow, which
+populates the `getPost` cache entry. See [Workflows](/docs/workflows).
 
 ## Garbage collection (`keepUnusedDataFor`)
 

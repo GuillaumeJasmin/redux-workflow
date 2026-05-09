@@ -2,7 +2,6 @@
 /* eslint-disable require-yield */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createAction } from '@reduxjs/toolkit';
 import { call } from 'typed-redux-saga';
 import { createApi, buildCacheKey } from './index';
 import { setupStore, getCache, getWorkflow } from './testing';
@@ -148,34 +147,6 @@ describe('redux-workflow queries', () => {
       status: 'rejected',
       error: 'NOT_FOUND',
     });
-  });
-
-  it('auto-triggers when a listen action fires, using the action payload as args', async () => {
-    const pageEntered = createAction<{ id: string }>('page/entered');
-    const fetchSpy = vi.fn();
-
-    const api = createApi({
-      name: 'test',
-      queries: (query) => ({
-        getUser: query({
-          listen: pageEntered.match,
-          *execute(args: { id: string }) {
-            fetchSpy(args);
-            return { data: { id: args.id, name: 'Alice' } };
-          },
-        }),
-      }),
-    });
-
-    const { store, flush } = setupStore(api);
-
-    store.dispatch(pageEntered({ id: '42' }));
-    await flush();
-
-    expect(fetchSpy).toHaveBeenCalledWith({ id: '42' });
-    expect(
-      getCache(store, api.reducerPath, buildCacheKey(api.queries.getUser._key, { id: '42' })),
-    ).toMatchObject({ status: 'fulfilled' });
   });
 });
 
