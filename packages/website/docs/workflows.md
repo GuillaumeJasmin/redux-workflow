@@ -99,10 +99,14 @@ Inside a workflow's `execute`, the second argument is the typed context:
 }
 ```
 
-- `query(nameOrInstance, args)` — dispatch the query + wait for its
-  resolution (or return cached data if fresh). Accepts either a name
+- `query(nameOrInstance, args, options?)` — dispatch the query + wait for
+  its resolution (or return cached data if fresh). Accepts either a name
   (own api) or a query instance (any api — see
   [Cross-api access](#cross-api-access)). Returns `{ data } | { error }`.
+  - `options.forceRefetch` (boolean) — bypass the "fulfilled + fresh"
+    cache short-circuit and dispatch a new fetch even when a valid
+    cached entry exists. An in-flight request is still joined (no
+    redundant network calls). Mirrors RTK Query's `forceRefetch`.
 - `mutate(nameOrInstance, args)` — dispatch the mutation + wait for its
   resolution. Same name/instance overload as `query`. Returns
   `{ data } | { error }`.
@@ -135,6 +139,27 @@ workflows: (workflow, { selectors, actions }) => ({
 workflow when the action has no other meaning. For state changes
 _caused by_ something else (mutation lifecycle, external action), use
 the slice's `extraReducers` instead — see [API slice](/docs/api-slice).
+
+### Forcing a refetch
+
+By default, `query(...)` returns the cached entry when it's `fulfilled`
+and still fresh (per the query's `cache` TTL). Pass
+`{ forceRefetch: true }` to bypass that short-circuit and run the
+underlying `execute` again — useful when a workflow needs the latest
+server state regardless of how recently it was read.
+
+```ts
+*execute({ orderId }: { orderId: string }, { query }) {
+  // Always hit the server, even if a fresh cached entry exists.
+  const order = yield* query('getOrder', { orderId }, { forceRefetch: true });
+  if ('error' in order) return { error: order.error };
+  // ...
+}
+```
+
+If a request is already in flight for the same cache key, `forceRefetch`
+joins it instead of starting a redundant one. To also discard the
+in-flight result, dispatch `api.invalidateCache({ cacheKey })` first.
 
 ## Cross-api access
 

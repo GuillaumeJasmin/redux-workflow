@@ -125,6 +125,18 @@ export type BoundSelectors<TSelectors> = {
 
 type CacheUpdater<TResult> = TResult | ((previous: TResult | null) => TResult);
 
+/**
+ * Per-call options for `ctx.query(...)` inside a workflow / mutation.
+ *
+ * - `forceRefetch` — bypass the "fulfilled + fresh" cache short-circuit
+ *   and dispatch a new fetch even if a valid cached entry exists. An
+ *   in-flight request is still joined (no point racing redundant
+ *   network calls).
+ */
+export type QueryRunOptions = {
+  forceRefetch?: boolean;
+};
+
 export type ExecuteContext<QDefs = any, MDefs = any> = {
   /**
    * Run a query and wait for its result. Two forms:
@@ -137,10 +149,12 @@ export type ExecuteContext<QDefs = any, MDefs = any> = {
     <K extends keyof QDefs>(
       name: K,
       args: QueryArgs<QDefs, K>,
+      options?: QueryRunOptions,
     ): SagaGen<QueryResultShape<QueryResult<QDefs, K>>>;
     <TResult, TArgs>(
       instance: QueryInstance<TResult, TArgs>,
       args: TArgs,
+      options?: QueryRunOptions,
     ): SagaGen<QueryResultShape<TResult>>;
   };
   /**

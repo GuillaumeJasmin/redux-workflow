@@ -2,7 +2,13 @@
 
 import type { Action, ActionCreatorWithPayload } from '@reduxjs/toolkit';
 import { put, select, take, race } from 'typed-redux-saga';
-import type { ExecuteContext, MutationInstance, QueryInstance, SagaGen } from '../createApi/types';
+import type {
+  ExecuteContext,
+  MutationInstance,
+  QueryInstance,
+  QueryRunOptions,
+  SagaGen,
+} from '../createApi/types';
 import { buildCacheKey, isCacheStale } from '../utils/cacheKey';
 import type { CacheEntry } from '../store/cacheSlice';
 
@@ -63,6 +69,7 @@ export function createSagaContext(
   function* runQuery(
     nameOrInstance: PropertyKey | QueryInstance,
     args: unknown,
+    options?: QueryRunOptions,
   ): SagaGen<{ data: unknown } | { error: unknown }> {
     const instance = resolveQuery(nameOrInstance);
     const cacheKey = buildCacheKey(instance._key, args);
@@ -71,7 +78,11 @@ export function createSagaContext(
       selectCacheEntry(state, instance._reducerPath, cacheKey),
     );
 
-    if (entry?.status === 'fulfilled' && !isCacheStale(entry, instance._def.cache)) {
+    if (
+      !options?.forceRefetch &&
+      entry?.status === 'fulfilled' &&
+      !isCacheStale(entry, instance._def.cache)
+    ) {
       return { data: entry.data };
     }
 

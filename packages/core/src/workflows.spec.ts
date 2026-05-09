@@ -220,6 +220,44 @@ describe('redux-workflow workflows', () => {
     });
   });
 
+  it('ctx.query honors { forceRefetch: true } even when the cache entry is fresh', async () => {
+    let executeCalls = 0;
+
+    const api = createApi({
+      name: 'test',
+      queries: (query) => ({
+        getCounter: query({
+          *execute() {
+            executeCalls += 1;
+            return { data: { value: executeCalls } };
+          },
+          cache: 60, // fresh for a minute — would normally short-circuit the second call
+        }),
+      }),
+      workflows: (workflow) => ({
+        readTwice: workflow({
+          *execute(_args: undefined, { query }) {
+            const first = yield* query('getCounter', undefined);
+            const second = yield* query('getCounter', undefined, { forceRefetch: true });
+            if ('error' in first || 'error' in second) throw new Error('unexpected error');
+            return { first: first.data.value, second: second.data.value };
+          },
+        }),
+      }),
+    });
+
+    const { store, flush } = setupStore(api);
+
+    store.dispatch(api.workflows.readTwice.trigger(undefined as any));
+    await flush();
+
+    expect(executeCalls).toBe(2);
+    expect(getWorkflow(store, api.reducerPath, api.workflows.readTwice._key)).toMatchObject({
+      status: 'fulfilled',
+      data: { first: 1, second: 2 },
+    });
+  });
+
   it('reset clears the workflow entry', async () => {
     const api = createApi({
       name: 'test',
