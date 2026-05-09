@@ -258,6 +258,73 @@ describe('redux-workflow workflows', () => {
     });
   });
 
+  it('ctx.query with { forceRefetch: true } cancels an in-flight fetch and starts a new one', async () => {
+    let executeCalls = 0;
+    let resolveExecute: (() => void) | undefined;
+    const deferred = new Promise<void>((resolve) => {
+      resolveExecute = resolve;
+    });
+
+    const api = createApi({
+      name: 'test',
+      queries: (query) => ({
+        getThing: query({
+          async execute() {
+            executeCalls += 1;
+            const myCall = executeCalls;
+            await deferred;
+            return { data: { call: myCall } };
+          },
+        }),
+      }),
+      workflows: (workflow) => ({
+        forceFetch: workflow({
+          *execute(_args: undefined, { query }) {
+            const result = yield* query('getThing', undefined, { forceRefetch: true });
+            if ('error' in result) throw new Error('unexpected error');
+            return result.data;
+          },
+        }),
+      }),
+    });
+
+    const { store, flush, dispatchedActions } = setupStore(api);
+
+    // 1. Put the query into pending state — the first execute paused on `await deferred`.
+    store.dispatch(api.queries.getThing.trigger(undefined as any));
+    await Promise.resolve();
+    expect(executeCalls).toBe(1);
+
+    // 2. Run the workflow — forceRefetch must cancel the in-flight task and fire a SECOND execute.
+    store.dispatch(api.workflows.forceFetch.trigger(undefined as any));
+    await Promise.resolve();
+    expect(executeCalls).toBe(2);
+
+    // 3. Resolve both deferred awaits and let everything settle.
+    resolveExecute!();
+    await flush();
+
+    const cacheKey = buildCacheKey(api.queries.getThing._key, undefined);
+    expect(getCache(store, api.reducerPath, cacheKey)).toMatchObject({
+      status: 'fulfilled',
+      data: { call: 2 },
+    });
+    expect(getWorkflow(store, api.reducerPath, api.workflows.forceFetch._key)).toMatchObject({
+      status: 'fulfilled',
+      data: { call: 2 },
+    });
+
+    // Cancel proof: although BOTH execute() bodies ran (executeCalls === 2),
+    // only the SECOND fork's fulfilled action was ever dispatched. If the
+    // first fork hadn't been cancelled, RTK-Query-style "last wins" would
+    // have dispatched two fulfilled actions for this cacheKey.
+    const fulfilledForGetThing = dispatchedActions.filter((action) =>
+      api.queries.getThing.matchFulfilled(action as any),
+    );
+    expect(fulfilledForGetThing).toHaveLength(1);
+    expect((fulfilledForGetThing[0] as any).payload.data).toEqual({ call: 2 });
+  });
+
   it('reset clears the workflow entry', async () => {
     const api = createApi({
       name: 'test',

@@ -86,6 +86,10 @@ export function createWatchQueryTriggers(
 // Per-cacheKey dedup + takeLatest:
 //   - if an entry is already `pending` for this cacheKey, drop the trigger
 //     (prevents double-fetch on concurrent mounts of the same query + args).
+//   - exception: if the trigger carries `meta.forceRefetch`, bypass the
+//     pending drop so the in-flight task is cancelled and a fresh fetch
+//     runs (matches RTK Query's `refetch()` semantics; dispatched by
+//     `ctx.query(..., { forceRefetch: true })`).
 //   - otherwise, different args run in parallel; a same-args re-trigger after
 //     the first settles replaces the prior task.
 function* watchInstance(
@@ -111,7 +115,9 @@ function* watchInstance(
       (state: any) => state[reducerPath]?.queries?.[cacheKey]?.status,
     );
 
-    if (currentStatus === 'pending') {
+    const forceRefetch = (action as any).meta?.forceRefetch === true;
+
+    if (currentStatus === 'pending' && !forceRefetch) {
       continue;
     }
 

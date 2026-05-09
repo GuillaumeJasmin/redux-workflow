@@ -78,19 +78,27 @@ export function createSagaContext(
       selectCacheEntry(state, instance._reducerPath, cacheKey),
     );
 
-    if (
-      !options?.forceRefetch &&
-      entry?.status === 'fulfilled' &&
-      !isCacheStale(entry, instance._def.cache)
-    ) {
-      return { data: entry.data };
+    if (!options?.forceRefetch) {
+      if (entry?.status === 'fulfilled' && !isCacheStale(entry, instance._def.cache)) {
+        return { data: entry.data };
+      }
+
+      if (entry?.status === 'pending') {
+        return yield* waitForQueryResolution(instance, cacheKey);
+      }
     }
 
-    if (entry?.status === 'pending') {
-      return yield* waitForQueryResolution(instance, cacheKey);
+    if (options?.forceRefetch) {
+      // Tag the trigger so the queryRunner skips its own pending-status
+      // dedup and aborts any in-flight task for this cacheKey.
+      yield* put({
+        type: instance.trigger.type,
+        payload: args,
+        meta: { forceRefetch: true },
+      } as any);
+    } else {
+      yield* put(instance.trigger(args as any));
     }
-
-    yield* put(instance.trigger(args as any));
     return yield* waitForQueryResolution(instance, cacheKey);
   }
 

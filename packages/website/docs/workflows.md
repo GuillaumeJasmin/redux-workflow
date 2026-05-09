@@ -103,10 +103,12 @@ Inside a workflow's `execute`, the second argument is the typed context:
   its resolution (or return cached data if fresh). Accepts either a name
   (own api) or a query instance (any api — see
   [Cross-api access](#cross-api-access)). Returns `{ data } | { error }`.
-  - `options.forceRefetch` (boolean) — bypass the "fulfilled + fresh"
-    cache short-circuit and dispatch a new fetch even when a valid
-    cached entry exists. An in-flight request is still joined (no
-    redundant network calls). Mirrors RTK Query's `forceRefetch`.
+  - `options.forceRefetch` (boolean) — always dispatch a new fetch,
+    bypassing both the "fulfilled + fresh" cache short-circuit and the
+    in-flight dedup branch. If a request is already in flight for the
+    same cache key, it is cancelled and a fresh fetch is started — any
+    caller already waiting on that resolution receives the new fetch's
+    result. Mirrors RTK Query's `refetch()` semantics.
 - `mutate(nameOrInstance, args)` — dispatch the mutation + wait for its
   resolution. Same name/instance overload as `query`. Returns
   `{ data } | { error }`.
@@ -157,9 +159,13 @@ server state regardless of how recently it was read.
 }
 ```
 
-If a request is already in flight for the same cache key, `forceRefetch`
-joins it instead of starting a redundant one. To also discard the
-in-flight result, dispatch `api.invalidateCache({ cacheKey })` first.
+`forceRefetch: true` always dispatches a new fetch, even when one is
+already in flight for the same cache key — the in-flight task is
+cancelled and a fresh fetch starts. Any caller already awaiting the
+prior resolution receives the new fetch's result, so concurrent
+force-refetches converge on the latest fulfillment rather than racing.
+The default path (no options) still dedupes against in-flight
+requests, so this only triggers when you explicitly opt in.
 
 ## Cross-api access
 

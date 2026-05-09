@@ -128,10 +128,12 @@ type CacheUpdater<TResult> = TResult | ((previous: TResult | null) => TResult);
 /**
  * Per-call options for `ctx.query(...)` inside a workflow / mutation.
  *
- * - `forceRefetch` — bypass the "fulfilled + fresh" cache short-circuit
- *   and dispatch a new fetch even if a valid cached entry exists. An
- *   in-flight request is still joined (no point racing redundant
- *   network calls).
+ * - `forceRefetch` — always dispatch a new fetch, bypassing both the
+ *   "fulfilled + fresh" cache short-circuit and the in-flight dedup
+ *   branch. If a request is already in flight for the same cache key,
+ *   it is cancelled and a fresh fetch is started — any caller already
+ *   waiting on that resolution receives the new fetch's result.
+ *   Mirrors RTK Query's `refetch()` semantics.
  */
 export type QueryRunOptions = {
   forceRefetch?: boolean;
