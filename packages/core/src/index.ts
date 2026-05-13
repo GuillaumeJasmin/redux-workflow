@@ -1,4 +1,6 @@
 export { createApi } from './createApi';
+export { combineApis, type CombineApisOptions, type CombineApisResult } from './combineApis';
+export { createRootSaga, SAGA_ERROR, type SagaErrorAction } from './saga/createRootSaga';
 export type {
   QueryDefinition,
   MutationDefinition,

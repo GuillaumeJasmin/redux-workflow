@@ -59,10 +59,12 @@ For a non-React project, install `@redux-workflow/core` instead of
 
 ## Setup
 
+`combineApis` bundles every api's reducer, builds the saga middleware, and
+exposes a `runMiddleware` to start the sagas after the store is created.
+
 ```ts
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
-import createSagaMiddleware from 'redux-saga';
-import { createApi } from '@redux-workflow/core';
+import { configureStore } from '@reduxjs/toolkit';
+import { createApi, combineApis } from '@redux-workflow/core';
 
 const postsApi = createApi({
   name: 'postsApi',
@@ -77,17 +79,22 @@ const postsApi = createApi({
   }),
 });
 
-const sagaMiddleware = createSagaMiddleware();
-
-const store = configureStore({
-  reducer: combineReducers({
-    [postsApi.reducerPath]: postsApi.reducer,
-    // ...your other reducers
-  }),
-  middleware: (getDefault) => getDefault().concat(sagaMiddleware),
+const apis = combineApis([postsApi /* , otherApi, ... */], {
+  onError(error) {
+    // Uncaught saga failures land here.
+    console.error(error);
+  },
 });
 
-sagaMiddleware.run(postsApi.rootSaga);
+const store = configureStore({
+  reducer: {
+    ...apis.reducers,
+    // ...your other reducers
+  },
+  middleware: (getDefault) => getDefault().concat(apis.middleware),
+});
+
+apis.runMiddleware();
 ```
 
 Each API mounts its own state subtree at `state[api.reducerPath]`. State is

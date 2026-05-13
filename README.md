@@ -60,9 +60,8 @@ For a non-React project, install `@redux-workflow/core` instead of
 ## Quickstart
 
 ```ts
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
-import createSagaMiddleware from 'redux-saga';
-import { createApi } from '@redux-workflow/core';
+import { configureStore } from '@reduxjs/toolkit';
+import { createApi, combineApis } from '@redux-workflow/core';
 
 const usersApi = createApi({
   name: 'usersApi',
@@ -77,12 +76,18 @@ const usersApi = createApi({
   }),
 });
 
-const sagaMiddleware = createSagaMiddleware();
-const store = configureStore({
-  reducer: combineReducers({ [usersApi.reducerPath]: usersApi.reducer }),
-  middleware: (getDefault) => getDefault().concat(sagaMiddleware),
+const apis = combineApis([usersApi /* , otherApi */], {
+  onError(error) {
+    console.error(error);
+  },
 });
-sagaMiddleware.run(usersApi.rootSaga);
+
+const store = configureStore({
+  reducer: { ...apis.reducers },
+  middleware: (getDefault) => getDefault().concat(apis.middleware),
+});
+
+apis.runMiddleware();
 ```
 
 ```tsx

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */
 
 import { createAction, combineReducers, createSlice, type Reducer } from '@reduxjs/toolkit';
-import { all, call } from 'typed-redux-saga';
+import { call } from 'typed-redux-saga';
 import { createInstanceAction } from './instanceActions';
 import type {
   ActionsFromSliceReturn,
@@ -32,6 +32,7 @@ import { createWatchWorkflowTriggers } from '../saga/workflowRunner';
 import { createWatchGarbageCollector } from '../saga/garbageCollectorRunner';
 import { createWatchRefetchEvents } from '../saga/refetchRunner';
 import { assertGetStateInContext } from '../saga/actionHelpers';
+import { createRootSaga } from '../saga/createRootSaga';
 
 // Empty object type with no index signature — `keyof EmptyDefs` is `never`,
 // so `Record<string, never>` (which has a string index signature) can't be
@@ -183,15 +184,14 @@ export function createApi<
   );
   const watchRefetchEvents = createWatchRefetchEvents(reducerPath, queryInstances);
 
-  function* rootSaga(): SagaGen<void> {
+  function* rootSaga(onError?: (error: Error) => void): SagaGen<void> {
     yield* call(assertGetStateInContext);
-    yield* all([
-      call(watchQueries),
-      call(watchMutations),
-      call(watchWorkflows),
-      call(watchGarbageCollector),
-      call(watchRefetchEvents),
-    ]);
+    yield* call(
+      createRootSaga(
+        [watchQueries, watchMutations, watchWorkflows, watchGarbageCollector, watchRefetchEvents],
+        onError,
+      ),
+    );
   }
 
   return {

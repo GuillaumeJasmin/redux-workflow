@@ -447,7 +447,7 @@ export type ApiInstance<
   name: string;
   reducerPath: string;
   reducer: Reducer;
-  rootSaga: () => SagaGen<void>;
+  rootSaga: (onError?: (error: Error) => void) => SagaGen<void>;
   queries: Q;
   mutations: M;
   workflows: W;
