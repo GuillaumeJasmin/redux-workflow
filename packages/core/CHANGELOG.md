@@ -1,5 +1,11 @@
 # @redux-workflow/core
 
+## 0.2.1
+
+### Patch Changes
+
+- bb21a9f: build before publish
+
 ## 0.2.0
 
 ### Minor Changes
